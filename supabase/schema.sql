@@ -33,6 +33,8 @@ CREATE TABLE partidos (
   ronda TEXT NOT NULL,
   equipo_local TEXT NOT NULL,
   equipo_visitante TEXT NOT NULL,
+  escudo_local TEXT,
+  escudo_visitante TEXT,
   external_id INT,
   fecha TIMESTAMPTZ,
   orden INT NOT NULL DEFAULT 0,

@@ -36,14 +36,12 @@ onMounted(cargarParticipantes)
 
 <template>
   <div>
-    <h3 class="h5 mb-3">Ver predicciones</h3>
-    <div class="row g-2 mb-3">
-      <div class="col-md-4">
-        <select v-model="seleccionado" class="form-select" @change="verPredicciones">
+    <h3 class="section-title">Ver predicciones</h3>
+    <div class="stack-form mb-3">
+      <select v-model="seleccionado" class="form-select" @change="verPredicciones">
           <option value="">Elegir participante...</option>
           <option v-for="p in participantes" :key="p.id" :value="p.id">{{ p.nombre }}</option>
         </select>
-      </div>
     </div>
 
     <div v-if="campeon" class="alert alert-warning mb-3">

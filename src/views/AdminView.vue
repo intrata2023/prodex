@@ -8,6 +8,7 @@ import AdminConfig from '../components/AdminConfig.vue'
 import AdminMatches from '../components/AdminMatches.vue'
 import AdminResultsUpdater from '../components/AdminResultsUpdater.vue'
 import AdminPredictionsView from '../components/AdminPredictionsView.vue'
+import AdminExport from '../components/AdminExport.vue'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
 
 const tab = ref('config')
@@ -29,36 +30,54 @@ function onTabChange(t) {
 </script>
 
 <template>
-  <AppLayout title="Panel Admin">
-    <ul class="nav nav-pills flex-wrap mb-4 gap-1">
-      <li class="nav-item" v-for="t in [
-        { id: 'config', label: 'Etapas' },
-        { id: 'participantes', label: 'Participantes' },
-        { id: 'progreso', label: 'Progreso' },
-        { id: 'partidos', label: 'Partidos' },
-        { id: 'resultados', label: 'Resultados' },
-        { id: 'predicciones', label: 'Predicciones' },
-        { id: 'ranking', label: 'Ranking' },
-      ]" :key="t.id">
-        <button
-          class="nav-link"
-          :class="{ active: tab === t.id }"
-          @click="onTabChange(t.id)"
-        >
-          {{ t.label }}
-        </button>
-      </li>
-    </ul>
+  <AppLayout title="Admin">
+    <div class="admin-tabs">
+      <button
+        v-for="t in [
+          { id: 'config', label: 'Etapas' },
+          { id: 'participantes', label: 'Participantes' },
+          { id: 'progreso', label: 'Progreso' },
+          { id: 'partidos', label: 'Partidos' },
+          { id: 'resultados', label: 'Resultados' },
+          { id: 'predicciones', label: 'Predicciones' },
+          { id: 'ranking', label: 'Ranking' },
+          { id: 'sheets', label: 'Sheets' },
+        ]"
+        :key="t.id"
+        class="admin-tab"
+        :class="{ active: tab === t.id }"
+        @click="onTabChange(t.id)"
+      >
+        {{ t.label }}
+      </button>
+    </div>
 
-    <AdminConfig v-show="tab === 'config'" />
-    <AdminParticipants v-show="tab === 'participantes'" />
-    <AdminProgress v-show="tab === 'progreso'" />
-    <AdminMatches v-show="tab === 'partidos'" />
-    <AdminResultsUpdater v-show="tab === 'resultados'" />
-    <AdminPredictionsView v-show="tab === 'predicciones'" />
+    <div class="panel-card" v-show="tab === 'config'">
+      <div class="panel-card-body"><AdminConfig /></div>
+    </div>
+    <div class="panel-card" v-show="tab === 'participantes'">
+      <div class="panel-card-body"><AdminParticipants /></div>
+    </div>
+    <div class="panel-card" v-show="tab === 'progreso'">
+      <div class="panel-card-body"><AdminProgress /></div>
+    </div>
+    <div class="panel-card" v-show="tab === 'partidos'">
+      <div class="panel-card-body"><AdminMatches /></div>
+    </div>
+    <div class="panel-card" v-show="tab === 'resultados'">
+      <div class="panel-card-body"><AdminResultsUpdater /></div>
+    </div>
+    <div class="panel-card" v-show="tab === 'predicciones'">
+      <div class="panel-card-body"><AdminPredictionsView /></div>
+    </div>
 
-    <div v-show="tab === 'ranking'">
-      <RankingTable :rows="ranking" show-desglose />
+    <div class="panel-card" v-show="tab === 'ranking'">
+      <div class="panel-card-body">
+        <RankingTable :rows="ranking" show-desglose />
+      </div>
+    </div>
+    <div class="panel-card" v-show="tab === 'sheets'">
+      <div class="panel-card-body"><AdminExport /></div>
     </div>
   </AppLayout>
 </template>

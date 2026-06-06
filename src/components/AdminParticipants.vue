@@ -58,68 +58,53 @@ defineExpose({ cargar })
 
 <template>
   <div>
-    <h3 class="h5 mb-3">Participantes</h3>
+    <h3 class="section-title">Participantes</h3>
     <div v-if="mensaje" class="alert alert-secondary py-2">{{ mensaje }}</div>
 
-    <form class="row g-2 mb-4" @submit.prevent="crear">
-      <div class="col-md-4">
-        <input v-model="nuevo.nombre" class="form-control" placeholder="Nombre" required />
-      </div>
-      <div class="col-md-3">
-        <input
-          v-model="nuevo.pin"
-          class="form-control"
-          placeholder="PIN 4 dígitos"
-          maxlength="4"
-          pattern="[0-9]{4}"
-          required
-        />
-      </div>
-      <div class="col-md-2">
-        <button type="submit" class="btn btn-success w-100">Crear</button>
-      </div>
+    <form class="stack-form mb-4" @submit.prevent="crear">
+      <input v-model="nuevo.nombre" class="form-control" placeholder="Nombre" required />
+      <input
+        v-model="nuevo.pin"
+        class="form-control"
+        placeholder="PIN 4 dígitos"
+        maxlength="4"
+        inputmode="numeric"
+        pattern="[0-9]{4}"
+        required
+      />
+      <button type="submit" class="btn btn-success w-100">Crear participante</button>
     </form>
 
-    <table class="table table-sm">
-      <thead>
-        <tr>
-          <th>Nombre</th>
-          <th>Puntos</th>
-          <th>Estado</th>
-          <th>PIN</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="p in participantes" :key="p.id">
-          <td>{{ p.nombre }}</td>
-          <td>{{ p.puntos_total }}</td>
-          <td>
-            <span :class="p.activo ? 'badge bg-success' : 'badge bg-secondary'">
-              {{ p.activo ? 'Activo' : 'Inactivo' }}
-            </span>
-          </td>
-          <td>
-            <div v-if="editando === p.id" class="d-flex gap-1">
-              <input
-                class="form-control form-control-sm"
-                style="width: 5rem"
-                maxlength="4"
-                @keyup.enter="(e) => cambiarPin(p, e.target.value)"
-              />
-              <button class="btn btn-sm btn-outline-secondary" @click="editando = null">✕</button>
-            </div>
-            <button v-else class="btn btn-sm btn-outline-primary" @click="editando = p.id">
-              Cambiar PIN
-            </button>
-          </td>
-          <td>
-            <button class="btn btn-sm btn-outline-warning" @click="toggleActivo(p)">
-              {{ p.activo ? 'Desactivar' : 'Activar' }}
-            </button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <div class="admin-list">
+      <div v-for="p in participantes" :key="p.id" class="admin-list-item">
+        <div class="admin-list-item-top">
+          <div>
+            <strong>{{ p.nombre }}</strong>
+            <span class="text-muted ms-2">{{ p.puntos_total }} pts</span>
+          </div>
+          <span :class="p.activo ? 'badge bg-success' : 'badge bg-secondary'">
+            {{ p.activo ? 'Activo' : 'Inactivo' }}
+          </span>
+        </div>
+        <div class="admin-list-item-actions">
+          <div v-if="editando === p.id" class="admin-pin-edit">
+            <input
+              class="form-control"
+              maxlength="4"
+              inputmode="numeric"
+              placeholder="Nuevo PIN"
+              @keyup.enter="(e) => cambiarPin(p, e.target.value)"
+            />
+            <button class="btn btn-outline-secondary" @click="editando = null">✕</button>
+          </div>
+          <button v-else class="btn btn-outline-primary flex-fill" @click="editando = p.id">
+            Cambiar PIN
+          </button>
+          <button class="btn btn-outline-warning flex-fill" @click="toggleActivo(p)">
+            {{ p.activo ? 'Desactivar' : 'Activar' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>

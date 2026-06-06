@@ -35,15 +35,10 @@ async function guardarResultado(partidoId, field, value) {
 }
 
 async function syncApi() {
-  const token = import.meta.env.VITE_FOOTBALL_DATA_TOKEN
-  if (!token) {
-    mensaje.value = 'Falta VITE_FOOTBALL_DATA_TOKEN en .env'
-    return
-  }
   loading.value = true
   mensaje.value = ''
   try {
-    const matches = await fetchWorldCupMatches(token)
+    const matches = await fetchWorldCupMatches()
     let ok = 0
     let fail = 0
     for (const m of matches) {
@@ -127,65 +122,51 @@ defineExpose({ cargar, recalcular })
 
 <template>
   <div>
-    <h3 class="h5 mb-3">Resultados reales</h3>
-    <div class="d-flex flex-wrap gap-2 mb-3">
-      <button class="btn btn-primary" :disabled="loading" @click="syncApi">
+    <h3 class="section-title">Resultados reales</h3>
+    <div class="stack-form mb-3">
+      <button class="btn btn-primary w-100" :disabled="loading" @click="syncApi">
         Actualizar desde API
       </button>
-      <button class="btn btn-warning" :disabled="loading" @click="recalcular">
+      <button class="btn btn-warning w-100" :disabled="loading" @click="recalcular">
         Recalcular puntos
       </button>
     </div>
     <div v-if="mensaje" class="alert alert-info py-2">{{ mensaje }}</div>
 
-    <div class="table-responsive" style="max-height: 450px; overflow-y: auto">
-      <table class="table table-sm">
-        <thead class="sticky-top bg-light">
-          <tr>
-            <th>Partido</th>
-            <th>Local</th>
-            <th>Visit.</th>
-            <th>P</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="p in partidos" :key="p.id">
-            <td>
-              <small>{{ p.fase }}</small><br />
-              <span class="text-truncate d-inline-block" style="max-width: 140px">
-                {{ p.equipo_local }} vs {{ p.equipo_visitante }}
-              </span>
-            </td>
-            <td>
-              <input
-                type="number"
-                min="0"
-                class="form-control form-control-sm"
-                style="width: 3.5rem"
-                :value="resultados[p.id]?.goles_local ?? ''"
-                @change="(e) => guardarResultado(p.id, 'goles_local', e.target.value)"
-              />
-            </td>
-            <td>
-              <input
-                type="number"
-                min="0"
-                class="form-control form-control-sm"
-                style="width: 3.5rem"
-                :value="resultados[p.id]?.goles_visitante ?? ''"
-                @change="(e) => guardarResultado(p.id, 'goles_visitante', e.target.value)"
-              />
-            </td>
-            <td>
-              <input
-                type="checkbox"
-                :checked="resultados[p.id]?.definido_penales"
-                @change="(e) => guardarResultado(p.id, 'definido_penales', e.target.checked)"
-              />
-            </td>
-          </tr>
-        </tbody>
-      </table>
+    <div class="admin-list admin-list--scroll">
+      <div v-for="p in partidos" :key="p.id" class="admin-list-item">
+        <div class="text-muted small mb-1">{{ p.fase }}</div>
+        <div class="match-team mb-2">{{ p.equipo_local }} vs {{ p.equipo_visitante }}</div>
+        <div class="match-score-row">
+          <input
+            type="number"
+            min="0"
+            inputmode="numeric"
+            class="form-control match-score-input"
+            :value="resultados[p.id]?.goles_local ?? ''"
+            @change="(e) => guardarResultado(p.id, 'goles_local', e.target.value)"
+            aria-label="Goles local"
+          />
+          <span class="match-separator">-</span>
+          <input
+            type="number"
+            min="0"
+            inputmode="numeric"
+            class="form-control match-score-input"
+            :value="resultados[p.id]?.goles_visitante ?? ''"
+            @change="(e) => guardarResultado(p.id, 'goles_visitante', e.target.value)"
+            aria-label="Goles visitante"
+          />
+        </div>
+        <label class="match-penales-label mt-2">
+          <input
+            type="checkbox"
+            :checked="resultados[p.id]?.definido_penales"
+            @change="(e) => guardarResultado(p.id, 'definido_penales', e.target.checked)"
+          />
+          Definido por penales
+        </label>
+      </div>
     </div>
   </div>
 </template>

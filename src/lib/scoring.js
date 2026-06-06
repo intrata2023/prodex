@@ -107,7 +107,6 @@ export function calcularPuntosParticipante({
   let finalPts = 0
 
   for (const partido of partidos) {
-    if (partido.fase === 'final') continue
     const pred = predMap[partido.id]
     const real = resMap[partido.id]
     if (!pred || !real) continue

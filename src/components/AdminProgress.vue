@@ -54,26 +54,25 @@ defineExpose({ cargar })
 
 <template>
   <div>
-    <h3 class="h5 mb-3">Progreso de participantes</h3>
-    <table class="table table-sm table-striped">
-      <thead>
-        <tr>
-          <th>Participante</th>
-          <th>Grupos</th>
-          <th>%</th>
-          <th>Eliminatorias</th>
-          <th>%</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="f in filas" :key="f.nombre">
-          <td>{{ f.nombre }}</td>
-          <td><span class="badge bg-primary">{{ f.grupos }}</span></td>
-          <td>{{ f.pctG }}%</td>
-          <td><span class="badge bg-warning text-dark">{{ f.eliminatorias }}</span></td>
-          <td>{{ f.pctE }}%</td>
-        </tr>
-      </tbody>
-    </table>
+    <h3 class="section-title">Progreso de participantes</h3>
+    <div class="admin-list">
+      <div v-for="f in filas" :key="f.nombre" class="admin-list-item">
+        <div class="admin-list-item-top">
+          <strong>{{ f.nombre }}</strong>
+        </div>
+        <div class="progress-row">
+          <div class="progress-chip">
+            <span class="progress-label">Grupos</span>
+            <span class="badge bg-primary">{{ f.grupos }}</span>
+            <span class="progress-pct">{{ f.pctG }}%</span>
+          </div>
+          <div class="progress-chip">
+            <span class="progress-label">Elim.</span>
+            <span class="badge bg-warning">{{ f.eliminatorias }}</span>
+            <span class="progress-pct">{{ f.pctE }}%</span>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>

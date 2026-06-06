@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
+import { importWorldCupFixture } from '../lib/syncResults.js'
 
 const partidos = ref([])
 const nuevo = ref({
@@ -13,6 +14,7 @@ const nuevo = ref({
   orden: 0,
 })
 const mensaje = ref('')
+const importando = ref(false)
 
 const fases = [
   { value: 'grupos', label: 'Grupos' },
@@ -41,6 +43,7 @@ async function crear() {
   }
   const { error } = await supabase.from('partidos').insert(payload)
   mensaje.value = error ? error.message : 'Partido creado'
+  nuevo.value = { ...nuevo.value, equipo_local: '', equipo_visitante: '', external_id: '', grupo: '' }
   await cargar()
 }
 
@@ -50,64 +53,87 @@ async function eliminar(id) {
   await cargar()
 }
 
+async function importarFixture() {
+  if (
+    !confirm(
+      'Esto reemplaza todos los partidos actuales (incluye predicciones y resultados asociados). ¿Continuar?'
+    )
+  ) {
+    return
+  }
+
+  importando.value = true
+  mensaje.value = ''
+  try {
+    const stats = await importWorldCupFixture(supabase)
+    mensaje.value = `Fixture importado: ${stats.total} partidos (${stats.grupos} grupos, ${stats.eliminatorias} eliminatorias)`
+    await cargar()
+  } catch (e) {
+    mensaje.value = e.message
+  }
+  importando.value = false
+}
+
 onMounted(cargar)
 defineExpose({ cargar })
 </script>
 
 <template>
   <div>
-    <h3 class="h5 mb-3">Partidos</h3>
+    <h3 class="section-title">Partidos</h3>
     <div v-if="mensaje" class="alert alert-secondary py-2">{{ mensaje }}</div>
 
-    <form class="row g-2 mb-4 border rounded p-3 bg-white" @submit.prevent="crear">
-      <div class="col-md-2">
-        <select v-model="nuevo.fase" class="form-select form-select-sm">
-          <option v-for="f in fases" :key="f.value" :value="f.value">{{ f.label }}</option>
-        </select>
-      </div>
-      <div class="col-md-2">
-        <input v-model="nuevo.ronda" class="form-control form-control-sm" placeholder="Ronda" />
-      </div>
-      <div class="col-md-1" v-if="nuevo.fase === 'grupos'">
-        <input v-model="nuevo.grupo" class="form-control form-control-sm" placeholder="Grupo" maxlength="1" />
-      </div>
-      <div class="col-md-3">
-        <input v-model="nuevo.equipo_local" class="form-control form-control-sm" placeholder="Local" required />
-      </div>
-      <div class="col-md-3">
-        <input v-model="nuevo.equipo_visitante" class="form-control form-control-sm" placeholder="Visitante" required />
-      </div>
-      <div class="col-md-1">
-        <input v-model="nuevo.external_id" class="form-control form-control-sm" placeholder="API id" />
-      </div>
-      <div class="col-md-1">
-        <button type="submit" class="btn btn-sm btn-success w-100">+</button>
-      </div>
+    <button
+      class="btn btn-primary w-100 mb-3"
+      :disabled="importando"
+      @click="importarFixture"
+    >
+      {{ importando ? 'Importando…' : 'Importar fixture Mundial 2026' }}
+    </button>
+    <p class="text-muted small mb-3">
+      Trae los partidos reales desde football-data.org. Grupos con equipos confirmados;
+      eliminatorias se cargan con placeholder hasta que FIFA defina cruces.
+    </p>
+
+    <form class="stack-form panel-form" @submit.prevent="crear">
+      <select v-model="nuevo.fase" class="form-select">
+        <option v-for="f in fases" :key="f.value" :value="f.value">{{ f.label }}</option>
+      </select>
+      <input v-model="nuevo.ronda" class="form-control" placeholder="Ronda" />
+      <input
+        v-if="nuevo.fase === 'grupos'"
+        v-model="nuevo.grupo"
+        class="form-control"
+        placeholder="Grupo (letra)"
+        maxlength="1"
+      />
+      <input v-model="nuevo.equipo_local" class="form-control" placeholder="Equipo local" required />
+      <input
+        v-model="nuevo.equipo_visitante"
+        class="form-control"
+        placeholder="Equipo visitante"
+        required
+      />
+      <input v-model="nuevo.external_id" class="form-control" placeholder="API id (opcional)" />
+      <button type="submit" class="btn btn-success w-100">Agregar partido manual</button>
     </form>
 
-    <div class="table-responsive" style="max-height: 400px; overflow-y: auto">
-      <table class="table table-sm table-hover">
-        <thead class="sticky-top bg-light">
-          <tr>
-            <th>Fase</th>
-            <th>Local</th>
-            <th>Visitante</th>
-            <th>Grupo</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="p in partidos" :key="p.id">
-            <td><small>{{ p.fase }} / {{ p.ronda }}</small></td>
-            <td>{{ p.equipo_local }}</td>
-            <td>{{ p.equipo_visitante }}</td>
-            <td>{{ p.grupo || '-' }}</td>
-            <td>
-              <button class="btn btn-sm btn-outline-danger" @click="eliminar(p.id)">✕</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+    <p class="text-muted small mb-2">{{ partidos.length }} partidos cargados</p>
+
+    <div class="admin-list admin-list--scroll">
+      <div v-for="p in partidos" :key="p.id" class="admin-list-item">
+        <div class="admin-list-item-top">
+          <div>
+            <strong>{{ p.equipo_local }}</strong>
+            <span class="text-muted"> vs </span>
+            <strong>{{ p.equipo_visitante }}</strong>
+            <div class="text-muted small">
+              {{ p.fase }}<span v-if="p.grupo"> · Grupo {{ p.grupo }}</span> · {{ p.ronda }}
+            </div>
+          </div>
+          <button class="btn btn-outline-danger btn-icon" @click="eliminar(p.id)">✕</button>
+        </div>
+      </div>
     </div>
   </div>
 </template>

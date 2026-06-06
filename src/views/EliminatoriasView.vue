@@ -2,6 +2,7 @@
 import { ref, onMounted, computed } from 'vue'
 import AppLayout from '../components/AppLayout.vue'
 import MatchPredictionCard from '../components/MatchPredictionCard.vue'
+import BracketView from '../components/BracketView.vue'
 import { useSession } from '../composables/useSession.js'
 import { useConfig } from '../composables/useConfig.js'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
@@ -21,6 +22,7 @@ const predicciones = ref({})
 const equipos = ref([])
 const campeon = ref({ equipo: '', finalista_1: '', finalista_2: '' })
 const loading = ref(true)
+const vista = ref('cargar')
 let campeonTimer = null
 
 const bloqueado = computed(() => !config.value.eliminatorias_abiertos)
@@ -107,66 +109,91 @@ function guardarCampeon() {
       <div class="spinner-border text-primary"></div>
     </div>
     <template v-else>
-      <div v-for="ronda in porRonda" :key="ronda.fase" class="mb-4">
-        <h2 class="h5 border-bottom pb-2">{{ ronda.label }}</h2>
-        <MatchPredictionCard
-          v-for="p in ronda.partidos"
-          :key="p.id"
-          :partido="p"
-          :prediccion="predicciones[p.id]"
-          :show-penales="true"
-          :disabled="bloqueado"
-          @save="guardar"
-        />
+      <div class="view-toggle">
+        <button
+          type="button"
+          class="view-toggle-btn"
+          :class="{ active: vista === 'cargar' }"
+          @click="vista = 'cargar'"
+        >
+          Cargar
+        </button>
+        <button
+          type="button"
+          class="view-toggle-btn"
+          :class="{ active: vista === 'cuadro' }"
+          @click="vista = 'cuadro'"
+        >
+          Cuadro
+        </button>
       </div>
 
-      <div class="card border-warning">
-        <div class="card-header bg-warning text-dark fw-semibold">
-          Predicción especial: Finalistas y Campeón
+      <template v-if="vista === 'cargar'">
+        <div v-for="ronda in porRonda" :key="ronda.fase" class="mb-4">
+          <h2 class="section-heading">{{ ronda.label }}</h2>
+          <MatchPredictionCard
+            v-for="p in ronda.partidos"
+            :key="p.id"
+            :partido="p"
+            :prediccion="predicciones[p.id]"
+            :show-penales="true"
+            :disabled="bloqueado"
+            @save="guardar"
+          />
         </div>
-        <div class="card-body">
-          <div class="row g-3">
-            <div class="col-md-4">
-              <label class="form-label">Finalista 1</label>
-              <select
-                v-model="campeon.finalista_1"
-                class="form-select"
-                :disabled="bloqueado"
-                @change="guardarCampeon"
-              >
-                <option value="">Elegir...</option>
-                <option v-for="e in equipos" :key="e" :value="e">{{ e }}</option>
-              </select>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Finalista 2</label>
-              <select
-                v-model="campeon.finalista_2"
-                class="form-select"
-                :disabled="bloqueado"
-                @change="guardarCampeon"
-              >
-                <option value="">Elegir...</option>
-                <option v-for="e in equipos" :key="e" :value="e">{{ e }}</option>
-              </select>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Campeón</label>
-              <select
-                v-model="campeon.equipo"
-                class="form-select"
-                :disabled="bloqueado"
-                @change="guardarCampeon"
-              >
-                <option value="">Elegir...</option>
-                <option v-for="e in equipos" :key="e" :value="e">{{ e }}</option>
-              </select>
+
+        <div class="panel-card panel-card--highlight">
+          <div class="panel-card-header">Finalistas y campeón</div>
+          <div class="panel-card-body">
+            <div class="stack-form">
+              <div>
+                <label class="form-label">Finalista 1</label>
+                <select
+                  v-model="campeon.finalista_1"
+                  class="form-select"
+                  :disabled="bloqueado"
+                  @change="guardarCampeon"
+                >
+                  <option value="">Elegir...</option>
+                  <option v-for="e in equipos" :key="e" :value="e">{{ e }}</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label">Finalista 2</label>
+                <select
+                  v-model="campeon.finalista_2"
+                  class="form-select"
+                  :disabled="bloqueado"
+                  @change="guardarCampeon"
+                >
+                  <option value="">Elegir...</option>
+                  <option v-for="e in equipos" :key="e" :value="e">{{ e }}</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label">Campeón</label>
+                <select
+                  v-model="campeon.equipo"
+                  class="form-select"
+                  :disabled="bloqueado"
+                  @change="guardarCampeon"
+                >
+                  <option value="">Elegir...</option>
+                  <option v-for="e in equipos" :key="e" :value="e">{{ e }}</option>
+                </select>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </template>
 
-      <p v-if="porRonda.length === 0" class="text-muted">
+      <BracketView
+        v-else
+        :partidos="partidos"
+        :predicciones="predicciones"
+      />
+
+      <p v-if="porRonda.length === 0 && vista === 'cargar'" class="text-muted">
         Aún no hay partidos de eliminatorias. El admin debe cargarlos cuando se definan los cruces.
       </p>
     </template>

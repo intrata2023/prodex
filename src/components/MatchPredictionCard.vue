@@ -1,5 +1,6 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, computed, onMounted } from 'vue'
+import { useTeamCrests } from '../composables/useTeamCrests.js'
 
 const props = defineProps({
   partido: { type: Object, required: true },
@@ -10,12 +11,20 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['save'])
+const { load, crestsForPartido, crestsLoaded } = useTeamCrests()
 
 const golesLocal = ref(null)
 const golesVisitante = ref(null)
 const penales = ref(false)
 const status = ref('idle')
 let debounceTimer = null
+
+const crests = computed(() => {
+  crestsLoaded.value
+  return crestsForPartido(props.partido)
+})
+
+onMounted(load)
 
 function syncFromPred() {
   if (props.prediccion) {
@@ -50,60 +59,76 @@ watch([golesLocal, golesVisitante, penales], scheduleSave)
 </script>
 
 <template>
-  <div class="card mb-2 shadow-sm" :class="{ 'opacity-50': disabled }">
-    <div class="card-body py-2">
-      <div class="row align-items-center g-2">
-        <div class="col-4 text-end fw-semibold text-truncate" :title="partido.equipo_local">
-          {{ partido.equipo_local }}
-        </div>
-        <div class="col-4">
-          <div class="d-flex align-items-center justify-content-center gap-1">
-            <input
-              type="number"
-              min="0"
-              max="20"
-              class="form-control form-control-sm text-center"
-              style="width: 3rem"
-              v-model.number="golesLocal"
-              :disabled="readonly || disabled"
-            />
-            <span class="text-muted">-</span>
-            <input
-              type="number"
-              min="0"
-              max="20"
-              class="form-control form-control-sm text-center"
-              style="width: 3rem"
-              v-model.number="golesVisitante"
-              :disabled="readonly || disabled"
-            />
-          </div>
-        </div>
-        <div class="col-4 fw-semibold text-truncate" :title="partido.equipo_visitante">
-          {{ partido.equipo_visitante }}
-        </div>
+  <div class="match-card" :class="{ 'match-card--disabled': disabled }">
+    <div v-if="partido.grupo" class="match-meta">Grupo {{ partido.grupo }}</div>
+
+    <div class="match-row">
+      <div class="match-side match-side--local">
+        <img
+          v-if="crests.local"
+          :src="crests.local"
+          class="match-crest"
+          :alt="partido.equipo_local"
+          loading="lazy"
+        />
+        <div v-else class="match-crest match-crest--placeholder" aria-hidden="true" />
+        <span class="match-name">{{ partido.equipo_local }}</span>
       </div>
-      <div v-if="showPenales" class="mt-2 text-center">
-        <div class="form-check form-check-inline">
+
+      <div class="match-center">
+        <div class="match-score-row">
           <input
-            class="form-check-input"
-            type="checkbox"
-            id="penales"
-            v-model="penales"
+            type="number"
+            min="0"
+            max="20"
+            inputmode="numeric"
+            class="form-control match-score-input"
+            v-model.number="golesLocal"
             :disabled="readonly || disabled"
+            :aria-label="`Goles ${partido.equipo_local}`"
           />
-          <label class="form-check-label" for="penales">
-            Pasa por penales (P)
-          </label>
+          <span class="match-separator">-</span>
+          <input
+            type="number"
+            min="0"
+            max="20"
+            inputmode="numeric"
+            class="form-control match-score-input"
+            v-model.number="golesVisitante"
+            :disabled="readonly || disabled"
+            :aria-label="`Goles ${partido.equipo_visitante}`"
+          />
         </div>
       </div>
-      <div v-if="!readonly && status !== 'idle'" class="text-center mt-1">
-        <small class="text-muted" v-if="status === 'saving'">Guardando...</small>
-        <small class="text-success" v-if="status === 'saved'">Guardado</small>
+
+      <div class="match-side match-side--away">
+        <img
+          v-if="crests.visitante"
+          :src="crests.visitante"
+          class="match-crest"
+          :alt="partido.equipo_visitante"
+          loading="lazy"
+        />
+        <div v-else class="match-crest match-crest--placeholder" aria-hidden="true" />
+        <span class="match-name">{{ partido.equipo_visitante }}</span>
       </div>
-      <div v-if="partido.grupo" class="text-center">
-        <small class="text-muted">Grupo {{ partido.grupo }}</small>
-      </div>
+    </div>
+
+    <div v-if="showPenales" class="match-penales">
+      <label class="match-penales-label">
+        <input
+          class="form-check-input"
+          type="checkbox"
+          v-model="penales"
+          :disabled="readonly || disabled"
+        />
+        Pasa por penales
+      </label>
+    </div>
+
+    <div v-if="!readonly && status !== 'idle'" class="match-status">
+      <small class="match-status--saving" v-if="status === 'saving'">Guardando…</small>
+      <small class="match-status--saved" v-if="status === 'saved'">Guardado</small>
     </div>
   </div>
 </template>

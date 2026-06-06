@@ -29,7 +29,7 @@ async function guardarCampeon() {
 
 <template>
   <div>
-    <h3 class="h5 mb-3">Control de etapas</h3>
+    <h3 class="section-title">Control de etapas</h3>
     <div v-if="mensaje" class="alert alert-success py-2">{{ mensaje }}</div>
 
     <div class="d-flex flex-wrap gap-3 mb-4">

@@ -7,7 +7,7 @@ import { useSession } from '../composables/useSession.js'
 const router = useRouter()
 const { setParticipant, setAdmin } = useSession()
 
-const tab = ref('participante')
+const showAdmin = ref(false)
 const participantes = ref([])
 const participanteId = ref('')
 const pin = ref('')
@@ -30,10 +30,15 @@ onMounted(async () => {
   if (!err && data) participantes.value = data
 })
 
+function selectParticipante(id) {
+  participanteId.value = id
+  error.value = ''
+}
+
 async function loginParticipante() {
   error.value = ''
   if (!participanteId.value || pin.value.length !== 4) {
-    error.value = 'Elegí participante e ingresá PIN de 4 dígitos'
+    error.value = 'Elegí tu nombre e ingresá el PIN de 4 dígitos'
     return
   }
   loading.value = true
@@ -44,7 +49,7 @@ async function loginParticipante() {
       setParticipant({ id: participanteId.value, nombre: selected?.nombre || 'Demo' })
       router.push('/dashboard')
     } else {
-      error.value = 'PIN incorrecto (demo: 1234)'
+      error.value = 'PIN incorrecto'
     }
     loading.value = false
     return
@@ -74,7 +79,7 @@ async function loginAdmin() {
       setAdmin()
       router.push('/admin')
     } else {
-      error.value = 'PIN admin incorrecto'
+      error.value = 'PIN incorrecto'
     }
     loading.value = false
     return
@@ -83,7 +88,7 @@ async function loginAdmin() {
   const { data, error: err } = await supabase.rpc('login_admin', { p_pin: adminPin.value })
   loading.value = false
   if (err || !data) {
-    error.value = 'PIN admin incorrecto'
+    error.value = 'PIN incorrecto'
     return
   }
   setAdmin()
@@ -92,90 +97,279 @@ async function loginAdmin() {
 </script>
 
 <template>
-  <div class="min-vh-100 d-flex align-items-center bg-primary bg-gradient">
-    <div class="container">
-      <div class="row justify-content-center">
-        <div class="col-md-5">
-          <div class="card shadow-lg border-0">
-            <div class="card-body p-4">
-              <h1 class="h3 text-center mb-1">Prode Mundial 2026</h1>
-              <p class="text-center text-muted mb-4">Oficina</p>
+  <div class="login-page">
+    <div class="login-bg" aria-hidden="true"></div>
 
-              <ul class="nav nav-tabs mb-4">
-                <li class="nav-item">
-                  <button
-                    class="nav-link"
-                    :class="{ active: tab === 'participante' }"
-                    @click="tab = 'participante'"
-                  >
-                    Participante
-                  </button>
-                </li>
-                <li class="nav-item">
-                  <button
-                    class="nav-link"
-                    :class="{ active: tab === 'admin' }"
-                    @click="tab = 'admin'"
-                  >
-                    Admin
-                  </button>
-                </li>
-              </ul>
+    <div class="login-wrap">
+      <header class="login-header">
+        <p class="login-eyebrow">Mundial 2026</p>
+        <h1 class="login-title">PRODEX</h1>
+      </header>
 
-              <div v-if="!supabaseConfigured" class="alert alert-warning small">
-                Sin Supabase configurado. Modo demo: PIN <strong>1234</strong>, admin
-                <strong>{{ demoAdminPin }}</strong>
-              </div>
-
-              <form v-if="tab === 'participante'" @submit.prevent="loginParticipante">
-                <div class="mb-3">
-                  <label class="form-label">Participante</label>
-                  <select v-model="participanteId" class="form-select" required>
-                    <option value="">Elegir...</option>
-                    <option v-for="p in participantes" :key="p.id" :value="p.id">
-                      {{ p.nombre }}
-                    </option>
-                  </select>
-                </div>
-                <div class="mb-3">
-                  <label class="form-label">PIN (4 dígitos)</label>
-                  <input
-                    v-model="pin"
-                    type="password"
-                    class="form-control text-center fs-4"
-                    maxlength="4"
-                    inputmode="numeric"
-                    pattern="[0-9]{4}"
-                    placeholder="••••"
-                    required
-                  />
-                </div>
-                <button type="submit" class="btn btn-primary w-100" :disabled="loading">
-                  Entrar
-                </button>
-              </form>
-
-              <form v-else @submit.prevent="loginAdmin">
-                <div class="mb-3">
-                  <label class="form-label">PIN Admin</label>
-                  <input
-                    v-model="adminPin"
-                    type="password"
-                    class="form-control"
-                    placeholder="PIN admin"
-                    required
-                  />
-                </div>
-                <button type="submit" class="btn btn-dark w-100" :disabled="loading">
-                  Entrar como Admin
-                </button>
-              </form>
-
-              <div v-if="error" class="alert alert-danger mt-3 mb-0">{{ error }}</div>
-            </div>
+      <div class="login-card">
+        <template v-if="!showAdmin">
+          <p class="login-label">¿Quién sos?</p>
+          <div class="name-grid">
+            <button
+              v-for="p in participantes"
+              :key="p.id"
+              type="button"
+              class="name-btn"
+              :class="{ active: participanteId === p.id }"
+              @click="selectParticipante(p.id)"
+            >
+              {{ p.nombre }}
+            </button>
           </div>
-        </div>
+
+          <form class="login-form" @submit.prevent="loginParticipante">
+            <label class="login-label" for="pin">PIN</label>
+            <input
+              id="pin"
+              v-model="pin"
+              type="password"
+              class="pin-input"
+              maxlength="4"
+              inputmode="numeric"
+              pattern="[0-9]{4}"
+              placeholder="••••"
+              autocomplete="off"
+              required
+            />
+            <button type="submit" class="btn-enter" :disabled="loading || !participanteId">
+              {{ loading ? 'Entrando…' : 'Entrar' }}
+            </button>
+          </form>
+        </template>
+
+        <template v-else>
+          <p class="login-label">Acceso administrador</p>
+          <form class="login-form" @submit.prevent="loginAdmin">
+            <input
+              v-model="adminPin"
+              type="password"
+              class="pin-input"
+              placeholder="PIN admin"
+              autocomplete="off"
+              required
+            />
+            <button type="submit" class="btn-enter btn-enter--admin" :disabled="loading">
+              {{ loading ? 'Entrando…' : 'Entrar' }}
+            </button>
+          </form>
+        </template>
+
+        <p v-if="error" class="login-error">{{ error }}</p>
+
+        <p v-if="!supabaseConfigured && !showAdmin" class="login-demo">
+          Demo — PIN <strong>1234</strong>
+        </p>
       </div>
+
+      <button type="button" class="admin-link" @click="showAdmin = !showAdmin; error = ''">
+        {{ showAdmin ? '← Volver' : 'Admin' }}
+      </button>
     </div>
   </div>
 </template>
+
+<style scoped>
+.login-page {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #080808;
+  color: #f5f5f5;
+  padding: max(1rem, env(safe-area-inset-top)) 1rem max(1rem, env(safe-area-inset-bottom));
+  position: relative;
+  overflow: hidden;
+}
+
+.login-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(34, 197, 94, 0.12), transparent),
+    radial-gradient(ellipse 50% 40% at 100% 100%, rgba(34, 197, 94, 0.06), transparent);
+  pointer-events: none;
+}
+
+.login-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 22rem;
+}
+
+.login-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.login-eyebrow {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #22c55e;
+}
+
+.login-title {
+  margin: 0;
+  font-size: 2.75rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  line-height: 1;
+}
+
+.login-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1.25rem;
+  padding: 1.75rem;
+  backdrop-filter: blur(12px);
+}
+
+.login-label {
+  margin: 0 0 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.name-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.name-btn {
+  flex: 1 1 calc(50% - 0.25rem);
+  min-width: 0;
+  min-height: 2.75rem;
+  padding: 0.875rem 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  color: #e5e5e5;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.name-btn:hover {
+  border-color: rgba(34, 197, 94, 0.4);
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.name-btn.active {
+  border-color: #22c55e;
+  background: rgba(34, 197, 94, 0.15);
+  color: #fff;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.pin-input {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.75rem;
+  background: rgba(0, 0, 0, 0.4);
+  color: #fff;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: 0.4em;
+  text-align: center;
+  outline: none;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+}
+
+.pin-input::placeholder {
+  color: rgba(255, 255, 255, 0.2);
+  letter-spacing: 0.2em;
+}
+
+.pin-input:focus {
+  border-color: rgba(34, 197, 94, 0.6);
+}
+
+.btn-enter {
+  margin-top: 0.25rem;
+  min-height: 2.75rem;
+  padding: 0.875rem;
+  border: none;
+  border-radius: 0.75rem;
+  background: #22c55e;
+  color: #052e16;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.btn-enter:hover:not(:disabled) {
+  background: #16a34a;
+}
+
+.btn-enter:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-enter--admin {
+  background: rgba(255, 255, 255, 0.12);
+  color: #f5f5f5;
+}
+
+.btn-enter--admin:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.login-error {
+  margin: 1rem 0 0;
+  padding: 0.625rem 0.875rem;
+  border-radius: 0.5rem;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: #fca5a5;
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.login-demo {
+  margin: 1rem 0 0;
+  font-size: 0.75rem;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.login-demo strong {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.admin-link {
+  display: block;
+  margin: 1.25rem auto 0;
+  min-height: 2.75rem;
+  padding: 0.75rem;
+  border: none;
+  background: none;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.admin-link:hover {
+  color: rgba(255, 255, 255, 0.6);
+}
+</style>
