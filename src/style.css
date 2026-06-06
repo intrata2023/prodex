@@ -288,7 +288,7 @@ body {
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.55);
   text-align: center;
   margin-bottom: 0.75rem;
 }
@@ -317,15 +317,18 @@ body {
 }
 
 .match-crest {
-  width: 2.5rem;
-  height: 2.5rem;
-  object-fit: contain;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(255, 255, 255, 0.14);
   flex-shrink: 0;
 }
 
 .match-crest--placeholder {
   background: rgba(255, 255, 255, 0.06);
-  border: 1px dashed var(--border);
+  border: 2px dashed rgba(255, 255, 255, 0.18);
   border-radius: 50%;
 }
 
@@ -333,8 +336,10 @@ body {
   font-weight: 600;
   font-size: 0.8125rem;
   line-height: 1.25;
+  color: #f0f0f0;
   word-break: break-word;
   hyphens: auto;
+  max-width: 5.5rem;
 }
 
 .match-team {

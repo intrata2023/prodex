@@ -1,7 +1,7 @@
 -- Prode Mundial 2026 - Schema
 -- Ejecutar en Supabase SQL Editor
 
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
 
 -- Config global (una sola fila)
 CREATE TABLE config (
@@ -93,8 +93,8 @@ CREATE VIEW participantes_list AS
 -- Hash PIN (SHA-256 hex)
 CREATE OR REPLACE FUNCTION hash_pin(pin TEXT)
 RETURNS TEXT AS $$
-  SELECT encode(digest(pin, 'sha256'), 'hex');
-$$ LANGUAGE SQL IMMUTABLE;
+  SELECT encode(extensions.digest(pin, 'sha256'), 'hex');
+$$ LANGUAGE SQL IMMUTABLE SET search_path = public, extensions;
 
 -- Login participante
 CREATE OR REPLACE FUNCTION login_participante(p_nombre TEXT, p_pin TEXT)

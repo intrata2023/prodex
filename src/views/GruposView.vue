@@ -90,7 +90,7 @@ async function guardar(payload) {
             data-bs-toggle="collapse"
             :data-bs-target="'#g' + g.letra"
           >
-            Grupo {{ g.letra }} ({{ g.partidos.length }} partidos)
+            Grupo {{ g.letra }}
           </button>
         </h2>
         <div
