@@ -17,12 +17,14 @@ CREATE TABLE config (
 -- Participantes
 CREATE TABLE participantes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  nombre TEXT NOT NULL UNIQUE,
+  usuario TEXT NOT NULL,
+  nombre TEXT NOT NULL,
   pin_hash TEXT NOT NULL,
   activo BOOLEAN NOT NULL DEFAULT true,
   puntos_total INT NOT NULL DEFAULT 0,
   desglose JSONB NOT NULL DEFAULT '{"grupos":0,"eliminatorias":0,"final":0}'::jsonb,
-  created_at TIMESTAMPTZ DEFAULT now()
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE (usuario)
 );
 
 -- Partidos
@@ -84,6 +86,10 @@ CREATE VIEW participantes_public AS
   FROM participantes
   WHERE activo = true;
 
+CREATE VIEW participantes_list AS
+  SELECT id, usuario, nombre, activo, puntos_total, desglose, created_at
+  FROM participantes;
+
 -- Hash PIN (SHA-256 hex)
 CREATE OR REPLACE FUNCTION hash_pin(pin TEXT)
 RETURNS TEXT AS $$
@@ -95,7 +101,7 @@ CREATE OR REPLACE FUNCTION login_participante(p_nombre TEXT, p_pin TEXT)
 RETURNS TABLE (id UUID, nombre TEXT) AS $$
   SELECT p.id, p.nombre
   FROM participantes p
-  WHERE p.nombre = p_nombre
+  WHERE lower(trim(p.usuario)) = lower(trim(p_nombre))
     AND p.pin_hash = hash_pin(p_pin)
     AND p.activo = true;
 $$ LANGUAGE SQL SECURITY DEFINER;

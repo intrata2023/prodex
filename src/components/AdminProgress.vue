@@ -8,7 +8,7 @@ async function cargar() {
   if (!supabaseConfigured) return
 
   const { data: participantes } = await supabase
-    .from('participantes')
+    .from('participantes_list')
     .select('id, nombre')
     .eq('activo', true)
 

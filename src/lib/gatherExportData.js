@@ -11,11 +11,11 @@ export async function gatherExportData() {
     { data: config, error: e5 },
     { data: campeones, error: e6 },
   ] = await Promise.all([
-    supabase.from('participantes').select('*').order('nombre'),
+    supabase.from('participantes_list').select('*').order('nombre'),
     supabase.from('partidos').select('*').order('orden'),
     supabase.from('predicciones').select('*'),
     supabase.from('resultados_reales').select('*'),
-    supabase.from('config').select('*').eq('id', 1).maybeSingle(),
+    supabase.from('config_public').select('*').eq('id', 1).maybeSingle(),
     supabase.from('prediccion_campeon').select('*'),
   ])
 

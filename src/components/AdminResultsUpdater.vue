@@ -3,7 +3,9 @@ import { ref, onMounted } from 'vue'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
 import { fetchWorldCupMatches, mapApiMatchToResult, matchPartidoLocal } from '../lib/syncResults.js'
 import { calcularTodosLosPuntos } from '../lib/scoring.js'
+import { useAdminPin } from '../composables/useAdminPin.js'
 
+const { requireAdminPin } = useAdminPin()
 const partidos = ref([])
 const resultados = ref({})
 const mensaje = ref('')
@@ -25,18 +27,20 @@ async function guardarResultado(partidoId, field, value) {
   }
   resultados.value[partidoId] = updated
 
-  await supabase.from('resultados_reales').upsert({
-    partido_id: partidoId,
-    goles_local: updated.goles_local,
-    goles_visitante: updated.goles_visitante,
-    definido_penales: updated.definido_penales ?? false,
-    ganador_penales: updated.ganador_penales || null,
+  await supabase.rpc('admin_upsert_resultado', {
+    p_admin_pin: requireAdminPin(),
+    p_partido_id: partidoId,
+    p_goles_local: updated.goles_local,
+    p_goles_visitante: updated.goles_visitante,
+    p_definido_penales: updated.definido_penales ?? false,
+    p_ganador_penales: updated.ganador_penales || null,
   })
 }
 
 async function syncApi() {
   loading.value = true
   mensaje.value = ''
+  const pin = requireAdminPin()
   try {
     const matches = await fetchWorldCupMatches()
     let ok = 0
@@ -49,19 +53,26 @@ async function syncApi() {
         fail++
         continue
       }
-      await supabase.from('resultados_reales').upsert({
-        partido_id: partido.id,
-        goles_local: apiRes.goles_local,
-        goles_visitante: apiRes.goles_visitante,
-        definido_penales: apiRes.definido_penales,
-        ganador_penales: apiRes.ganador_penales,
+      await supabase.rpc('admin_upsert_resultado', {
+        p_admin_pin: pin,
+        p_partido_id: partido.id,
+        p_goles_local: apiRes.goles_local,
+        p_goles_visitante: apiRes.goles_visitante,
+        p_definido_penales: apiRes.definido_penales,
+        p_ganador_penales: apiRes.ganador_penales,
       })
       if (partido.fase === 'final') {
         const campeon =
           apiRes.goles_local > apiRes.goles_visitante
             ? partido.equipo_local
             : partido.equipo_visitante
-        await supabase.from('config').update({ campeon_real: campeon }).eq('id', 1)
+        await supabase.rpc('admin_update_config', {
+          p_admin_pin: pin,
+          p_grupos_abiertos: null,
+          p_eliminatorias_abiertos: null,
+          p_monto_por_persona: null,
+          p_campeon_real: campeon,
+        })
       }
       ok++
     }
@@ -77,13 +88,17 @@ async function syncApi() {
 async function recalcular() {
   if (!supabaseConfigured) return
   loading.value = true
+  const pin = requireAdminPin()
 
-  const { data: participantes } = await supabase.from('participantes').select('*').eq('activo', true)
+  const { data: participantes } = await supabase
+    .from('participantes_list')
+    .select('*')
+    .eq('activo', true)
   const { data: pts } = await supabase.from('partidos').select('*')
   const { data: preds } = await supabase.from('predicciones').select('*')
   const { data: res } = await supabase.from('resultados_reales').select('*')
   const { data: campeones } = await supabase.from('prediccion_campeon').select('*')
-  const { data: cfg } = await supabase.from('config').select('campeon_real').eq('id', 1).single()
+  const { data: cfg } = await supabase.from('config_public').select('campeon_real').eq('id', 1).single()
 
   const partidoFinal = (pts || []).find((p) => p.fase === 'final')
   const finalistasReales = partidoFinal
@@ -106,10 +121,12 @@ async function recalcular() {
   )
 
   for (const u of updates) {
-    await supabase
-      .from('participantes')
-      .update({ puntos_total: u.puntos_total, desglose: u.desglose })
-      .eq('id', u.id)
+    await supabase.rpc('admin_update_puntos', {
+      p_admin_pin: pin,
+      p_participante_id: u.id,
+      p_puntos_total: u.puntos_total,
+      p_desglose: u.desglose,
+    })
   }
 
   mensaje.value = `Puntos recalculados para ${updates.length} participantes`

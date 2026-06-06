@@ -17,7 +17,7 @@ const ranking = ref([])
 async function cargarRanking() {
   if (!supabaseConfigured) return
   const { data } = await supabase
-    .from('participantes')
+    .from('participantes_list')
     .select('id, nombre, puntos_total, desglose')
     .order('puntos_total', { ascending: false })
   ranking.value = (data || []).map((p, i) => ({ ...p, puesto: i + 1 }))

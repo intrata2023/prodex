@@ -11,9 +11,8 @@ onMounted(cargar)
 async function cargar() {
   if (!supabaseConfigured) return
   const { data } = await supabase
-    .from('participantes')
+    .from('participantes_public')
     .select('id, nombre, puntos_total, desglose')
-    .eq('activo', true)
     .order('puntos_total', { ascending: false })
 
   rows.value = (data || []).map((p, i) => ({ ...p, puesto: i + 1 }))

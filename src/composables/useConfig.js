@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
+import { useAdminPin } from './useAdminPin.js'
 
 const config = ref({
   grupos_abiertos: true,
@@ -9,9 +10,11 @@ const config = ref({
 })
 
 export function useConfig() {
+  const { requireAdminPin } = useAdminPin()
+
   async function loadConfig() {
     if (!supabaseConfigured) return config.value
-    const { data, error } = await supabase.from('config').select('*').eq('id', 1).single()
+    const { data, error } = await supabase.from('config_public').select('*').eq('id', 1).single()
     if (!error && data) {
       config.value = {
         grupos_abiertos: data.grupos_abiertos,
@@ -25,7 +28,15 @@ export function useConfig() {
 
   async function updateConfig(updates) {
     if (!supabaseConfigured) return
-    const { error } = await supabase.from('config').update(updates).eq('id', 1)
+    const pin = requireAdminPin()
+    const { error } = await supabase.rpc('admin_update_config', {
+      p_admin_pin: pin,
+      p_grupos_abiertos: updates.grupos_abiertos ?? null,
+      p_eliminatorias_abiertos: updates.eliminatorias_abiertos ?? null,
+      p_monto_por_persona: updates.monto_por_persona ?? null,
+      p_campeon_real:
+        updates.campeon_real !== undefined ? updates.campeon_real : null,
+    })
     if (!error) await loadConfig()
     return error
   }

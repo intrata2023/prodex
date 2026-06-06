@@ -2,7 +2,9 @@
 import { ref, onMounted } from 'vue'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
 import { importWorldCupFixture } from '../lib/syncResults.js'
+import { useAdminPin } from '../composables/useAdminPin.js'
 
+const { requireAdminPin } = useAdminPin()
 const partidos = ref([])
 const nuevo = ref({
   fase: 'r32',
@@ -41,7 +43,10 @@ async function crear() {
     external_id: nuevo.value.external_id ? Number(nuevo.value.external_id) : null,
     orden: Number(nuevo.value.orden) || partidos.value.length + 1,
   }
-  const { error } = await supabase.from('partidos').insert(payload)
+  const { error } = await supabase.rpc('admin_insert_partido', {
+    p_admin_pin: requireAdminPin(),
+    p_payload: payload,
+  })
   mensaje.value = error ? error.message : 'Partido creado'
   nuevo.value = { ...nuevo.value, equipo_local: '', equipo_visitante: '', external_id: '', grupo: '' }
   await cargar()
@@ -49,7 +54,10 @@ async function crear() {
 
 async function eliminar(id) {
   if (!confirm('¿Eliminar partido?')) return
-  await supabase.from('partidos').delete().eq('id', id)
+  await supabase.rpc('admin_delete_partido', {
+    p_admin_pin: requireAdminPin(),
+    p_partido_id: id,
+  })
   await cargar()
 }
 
@@ -65,7 +73,7 @@ async function importarFixture() {
   importando.value = true
   mensaje.value = ''
   try {
-    const stats = await importWorldCupFixture(supabase)
+    const stats = await importWorldCupFixture(supabase, requireAdminPin())
     mensaje.value = `Fixture importado: ${stats.total} partidos (${stats.grupos} grupos, ${stats.eliminatorias} eliminatorias)`
     await cargar()
   } catch (e) {

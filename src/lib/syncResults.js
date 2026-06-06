@@ -78,19 +78,22 @@ function stripEscudos(partido) {
   return rest
 }
 
-export async function importWorldCupFixture(supabase) {
+export async function importWorldCupFixture(supabase, adminPin) {
   const matches = await fetchWorldCupMatches()
-  const partidos = mapApiMatchesToPartidos(matches)
+  let partidos = mapApiMatchesToPartidos(matches)
   if (!partidos.length) throw new Error('La API no devolvió partidos')
 
-  const { error: delErr } = await supabase.from('partidos').delete().gte('orden', 0)
-  if (delErr) throw delErr
-
-  let { error: insErr } = await supabase.from('partidos').insert(partidos)
-  if (insErr?.message?.includes('escudo')) {
-    ;({ error: insErr } = await supabase.from('partidos').insert(partidos.map(stripEscudos)))
+  let { error } = await supabase.rpc('admin_replace_partidos', {
+    p_admin_pin: adminPin,
+    p_partidos: partidos,
+  })
+  if (error?.message?.includes('escudo')) {
+    ;({ error } = await supabase.rpc('admin_replace_partidos', {
+      p_admin_pin: adminPin,
+      p_partidos: partidos.map(stripEscudos),
+    }))
   }
-  if (insErr) throw insErr
+  if (error) throw error
 
   return {
     total: partidos.length,

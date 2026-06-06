@@ -10,7 +10,7 @@ const predicciones = ref({})
 const campeon = ref(null)
 
 async function cargarParticipantes() {
-  const { data } = await supabase.from('participantes').select('id, nombre').eq('activo', true).order('nombre')
+  const { data } = await supabase.from('participantes_list').select('id, nombre').eq('activo', true).order('nombre')
   participantes.value = data || []
 }
 

@@ -21,14 +21,15 @@ export function useSession() {
   const isParticipant = computed(() => Boolean(session.value?.participante_id))
   const participanteId = computed(() => session.value?.participante_id ?? null)
   const nombre = computed(() => session.value?.nombre ?? '')
+  const adminPin = computed(() => session.value?.admin_pin ?? null)
 
   function setParticipant({ id, nombre: n }) {
     session.value = { participante_id: id, nombre: n, es_admin: false }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(session.value))
   }
 
-  function setAdmin() {
-    session.value = { es_admin: true }
+  function setAdmin(pin) {
+    session.value = { es_admin: true, admin_pin: pin }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(session.value))
   }
 
@@ -44,6 +45,7 @@ export function useSession() {
     isParticipant,
     participanteId,
     nombre,
+    adminPin,
     setParticipant,
     setAdmin,
     logout,

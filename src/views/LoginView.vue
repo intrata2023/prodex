@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
 import { useSession } from '../composables/useSession.js'
@@ -8,61 +8,40 @@ const router = useRouter()
 const { setParticipant, setAdmin } = useSession()
 
 const showAdmin = ref(false)
-const participantes = ref([])
-const participanteId = ref('')
+const usuario = ref('')
 const pin = ref('')
 const adminPin = ref('')
 const error = ref('')
 const loading = ref(false)
 
-const mockParticipantes = [
-  { id: 'mock-1', nombre: 'Federico' },
-  { id: 'mock-2', nombre: 'María' },
-]
-const demoAdminPin = import.meta.env.VITE_ADMIN_PIN || '000000'
-
-onMounted(async () => {
-  if (!supabaseConfigured) {
-    participantes.value = mockParticipantes
-    return
-  }
-  const { data, error: err } = await supabase.rpc('get_participantes_login')
-  if (!err && data) participantes.value = data
-})
-
-function selectParticipante(id) {
-  participanteId.value = id
-  error.value = ''
-}
-
 async function loginParticipante() {
   error.value = ''
-  if (!participanteId.value || pin.value.length !== 4) {
-    error.value = 'Elegí tu nombre e ingresá el PIN de 4 dígitos'
+  const user = usuario.value.trim()
+  if (!user || pin.value.length !== 4) {
+    error.value = 'Ingresá tu usuario y PIN de 4 dígitos'
     return
   }
   loading.value = true
-  const selected = participantes.value.find((p) => p.id === participanteId.value)
 
   if (!supabaseConfigured) {
     if (pin.value === '1234') {
-      setParticipant({ id: participanteId.value, nombre: selected?.nombre || 'Demo' })
+      setParticipant({ id: 'mock-1', nombre: user })
       router.push('/dashboard')
     } else {
-      error.value = 'PIN incorrecto'
+      error.value = 'Usuario o PIN incorrectos'
     }
     loading.value = false
     return
   }
 
   const { data, error: err } = await supabase.rpc('login_participante', {
-    p_nombre: selected.nombre,
+    p_nombre: user,
     p_pin: pin.value,
   })
 
   loading.value = false
   if (err || !data?.length) {
-    error.value = 'Nombre o PIN incorrectos'
+    error.value = 'Usuario o PIN incorrectos'
     return
   }
   setParticipant({ id: data[0].id, nombre: data[0].nombre })
@@ -76,7 +55,7 @@ async function loginAdmin() {
   if (!supabaseConfigured) {
     const envPin = import.meta.env.VITE_ADMIN_PIN || '000000'
     if (adminPin.value === envPin) {
-      setAdmin()
+      setAdmin(adminPin.value)
       router.push('/admin')
     } else {
       error.value = 'PIN incorrecto'
@@ -91,7 +70,7 @@ async function loginAdmin() {
     error.value = 'PIN incorrecto'
     return
   }
-  setAdmin()
+  setAdmin(adminPin.value)
   router.push('/admin')
 }
 </script>
@@ -108,21 +87,19 @@ async function loginAdmin() {
 
       <div class="login-card">
         <template v-if="!showAdmin">
-          <p class="login-label">¿Quién sos?</p>
-          <div class="name-grid">
-            <button
-              v-for="p in participantes"
-              :key="p.id"
-              type="button"
-              class="name-btn"
-              :class="{ active: participanteId === p.id }"
-              @click="selectParticipante(p.id)"
-            >
-              {{ p.nombre }}
-            </button>
-          </div>
-
           <form class="login-form" @submit.prevent="loginParticipante">
+            <label class="login-label" for="usuario">Usuario</label>
+            <input
+              id="usuario"
+              v-model="usuario"
+              type="text"
+              class="text-input"
+              placeholder="tu usuario"
+              autocomplete="username"
+              autocapitalize="off"
+              spellcheck="false"
+              required
+            />
             <label class="login-label" for="pin">PIN</label>
             <input
               id="pin"
@@ -136,7 +113,7 @@ async function loginAdmin() {
               autocomplete="off"
               required
             />
-            <button type="submit" class="btn-enter" :disabled="loading || !participanteId">
+            <button type="submit" class="btn-enter" :disabled="loading || !usuario.trim()">
               {{ loading ? 'Entrando…' : 'Entrar' }}
             </button>
           </form>
@@ -238,43 +215,32 @@ async function loginAdmin() {
   color: rgba(255, 255, 255, 0.5);
 }
 
-.name-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 1.5rem;
-}
-
-.name-btn {
-  flex: 1 1 calc(50% - 0.25rem);
-  min-width: 0;
-  min-height: 2.75rem;
-  padding: 0.875rem 0.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 0.75rem;
-  background: rgba(255, 255, 255, 0.03);
-  color: #e5e5e5;
-  font-size: 0.9375rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: border-color 0.15s, background 0.15s, color 0.15s;
-}
-
-.name-btn:hover {
-  border-color: rgba(34, 197, 94, 0.4);
-  background: rgba(34, 197, 94, 0.08);
-}
-
-.name-btn.active {
-  border-color: #22c55e;
-  background: rgba(34, 197, 94, 0.15);
-  color: #fff;
-}
-
 .login-form {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+}
+
+.text-input {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.75rem;
+  background: rgba(0, 0, 0, 0.4);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 500;
+  outline: none;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+}
+
+.text-input::placeholder {
+  color: rgba(255, 255, 255, 0.25);
+}
+
+.text-input:focus {
+  border-color: rgba(34, 197, 94, 0.6);
 }
 
 .pin-input {
