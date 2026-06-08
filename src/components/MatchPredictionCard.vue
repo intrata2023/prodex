@@ -64,14 +64,15 @@ watch([golesLocal, golesVisitante, penales], scheduleSave)
 
     <div class="match-row">
       <div class="match-side match-side--local">
-        <img
-          v-if="crests.local"
-          :src="crests.local"
-          class="match-crest"
-          :alt="partido.equipo_local"
-          loading="lazy"
-        />
-        <div v-else class="match-crest match-crest--placeholder" aria-hidden="true" />
+        <span v-if="crests.local" class="match-crest-wrap">
+          <img
+            :src="crests.local"
+            class="match-crest-img"
+            :alt="partido.equipo_local"
+            loading="lazy"
+          />
+        </span>
+        <span v-else class="match-crest-wrap match-crest-wrap--placeholder" aria-hidden="true" />
         <span class="match-name">{{ partido.equipo_local }}</span>
       </div>
 
@@ -102,14 +103,15 @@ watch([golesLocal, golesVisitante, penales], scheduleSave)
       </div>
 
       <div class="match-side match-side--away">
-        <img
-          v-if="crests.visitante"
-          :src="crests.visitante"
-          class="match-crest"
-          :alt="partido.equipo_visitante"
-          loading="lazy"
-        />
-        <div v-else class="match-crest match-crest--placeholder" aria-hidden="true" />
+        <span v-if="crests.visitante" class="match-crest-wrap">
+          <img
+            :src="crests.visitante"
+            class="match-crest-img"
+            :alt="partido.equipo_visitante"
+            loading="lazy"
+          />
+        </span>
+        <span v-else class="match-crest-wrap match-crest-wrap--placeholder" aria-hidden="true" />
         <span class="match-name">{{ partido.equipo_visitante }}</span>
       </div>
     </div>

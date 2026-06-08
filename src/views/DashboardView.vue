@@ -8,94 +8,88 @@ import { useConfig } from '../composables/useConfig.js'
 const { nombre } = useSession()
 const { config, loadConfig } = useConfig()
 
-onMounted(loadConfig)
-
 const gruposBloqueado = computed(() => !config.value.grupos_abiertos)
 const elimBloqueado = computed(() => !config.value.eliminatorias_abiertos)
+
+const etapasAbiertas = computed(() => {
+  let n = 0
+  if (!gruposBloqueado.value) n++
+  if (!elimBloqueado.value) n++
+  return n
+})
+
+onMounted(loadConfig)
 </script>
 
 <template>
   <AppLayout>
     <header class="home-hero">
+      <div class="home-hero-glow" aria-hidden="true" />
       <p class="home-eyebrow">Mundial 2026</p>
       <h1 class="home-brand">PRODEX</h1>
-      <p class="home-greeting">Hola, {{ nombre }}</p>
+      <p class="home-greeting">
+        Hola, <strong>{{ nombre }}</strong>
+      </p>
     </header>
 
-    <div class="action-grid">
-      <div class="action-card">
-        <div class="action-card-top">
-          <h2>Fase de grupos</h2>
-          <span v-if="gruposBloqueado" class="badge bg-danger">Bloqueada</span>
-          <span v-else class="badge bg-success">Abierta</span>
-        </div>
-        <router-link
-          class="btn btn-primary w-100"
-          :class="{ disabled: gruposBloqueado }"
-          to="/grupos"
-        >
-          Cargar grupos
-        </router-link>
-      </div>
+    <p class="home-section-label">Tus predicciones</p>
 
-      <div class="action-card">
-        <div class="action-card-top">
-          <h2>Eliminatorias</h2>
-          <span v-if="elimBloqueado" class="badge bg-danger">Bloqueada</span>
-          <span v-else class="badge bg-success">Abierta</span>
+    <div class="home-tiles">
+      <component
+        :is="gruposBloqueado ? 'div' : 'router-link'"
+        :to="gruposBloqueado ? undefined : '/grupos'"
+        class="home-tile home-tile--grupos"
+        :class="{ 'home-tile--locked': gruposBloqueado }"
+      >
+        <span class="home-tile-icon" aria-hidden="true">⚽</span>
+        <div class="home-tile-body">
+          <div class="home-tile-top">
+            <h2>Fase de grupos</h2>
+            <span class="home-tile-badge" :class="gruposBloqueado ? 'is-locked' : 'is-open'">
+              {{ gruposBloqueado ? 'Bloqueada' : 'Abierta' }}
+            </span>
+          </div>
+          <p class="home-tile-desc">Cargá los resultados de los 12 grupos.</p>
         </div>
-        <router-link
-          class="btn btn-warning w-100"
-          :class="{ disabled: elimBloqueado }"
-          to="/eliminatorias"
-        >
-          Cargar eliminatorias
-        </router-link>
-      </div>
+        <span v-if="!gruposBloqueado" class="home-tile-arrow" aria-hidden="true">›</span>
+      </component>
 
-      <div class="action-card">
-        <h2>Ranking</h2>
-        <p>Ver posiciones y puntos.</p>
-        <router-link class="btn btn-outline-primary w-100" to="/ranking">
-          Ver ranking
-        </router-link>
-      </div>
+      <component
+        :is="elimBloqueado ? 'div' : 'router-link'"
+        :to="elimBloqueado ? undefined : '/eliminatorias'"
+        class="home-tile home-tile--elim"
+        :class="{ 'home-tile--locked': elimBloqueado }"
+      >
+        <span class="home-tile-icon" aria-hidden="true">🏆</span>
+        <div class="home-tile-body">
+          <div class="home-tile-top">
+            <h2>Eliminatorias</h2>
+            <span class="home-tile-badge" :class="elimBloqueado ? 'is-locked' : 'is-open'">
+              {{ elimBloqueado ? 'Bloqueada' : 'Abierta' }}
+            </span>
+          </div>
+          <p class="home-tile-desc">Octavos, cuartos, semis y la final.</p>
+        </div>
+        <span v-if="!elimBloqueado" class="home-tile-arrow" aria-hidden="true">›</span>
+      </component>
+
+      <router-link class="home-tile home-tile--ranking" to="/ranking">
+        <span class="home-tile-icon" aria-hidden="true">📊</span>
+        <div class="home-tile-body">
+          <div class="home-tile-top">
+            <h2>Ranking</h2>
+            <span class="home-tile-badge is-neutral">En vivo</span>
+          </div>
+          <p class="home-tile-desc">Posiciones, puntos y desglose.</p>
+        </div>
+        <span class="home-tile-arrow" aria-hidden="true">›</span>
+      </router-link>
     </div>
 
-    <ScoringRules class="mt-4" />
+    <p v-if="etapasAbiertas === 0" class="home-hint">
+      Todavía no hay etapas abiertas. El admin las habilita cuando empieza el torneo.
+    </p>
+
+    <ScoringRules class="home-rules" />
   </AppLayout>
 </template>
-
-<style scoped>
-.home-hero {
-  text-align: center;
-  margin-bottom: 1.75rem;
-}
-
-.home-eyebrow {
-  margin: 0 0 0.375rem;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--accent);
-}
-
-.home-brand {
-  margin: 0;
-  font-size: 2.5rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  line-height: 1;
-}
-
-.home-greeting {
-  margin: 0.625rem 0 0;
-  font-size: 0.9375rem;
-  color: var(--text-muted);
-}
-
-.mt-4 {
-  margin-top: 1.25rem;
-}
-</style>

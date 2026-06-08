@@ -3,12 +3,19 @@ import { computed, onMounted } from 'vue'
 import { useTeamCrests } from '../composables/useTeamCrests.js'
 
 const RONDAS = [
-  { fase: 'r32', label: '16avos', short: 'R32' },
-  { fase: 'r16', label: 'Octavos', short: 'R16' },
-  { fase: 'qf', label: 'Cuartos', short: 'QF' },
-  { fase: 'sf', label: 'Semis', short: 'SF' },
-  { fase: 'final', label: 'Final', short: 'F' },
+  { fase: 'r32', label: '16avos', slots: 16 },
+  { fase: 'r16', label: 'Octavos', slots: 8 },
+  { fase: 'qf', label: 'Cuartos', slots: 4 },
+  { fase: 'sf', label: 'Semis', slots: 2 },
+  { fase: 'final', label: 'Final', slots: 1 },
 ]
+
+const COL_W = 106
+const GAP_W = 30
+const SLOT_H = 48
+const SPACING = SLOT_H + 8
+const TITLE_H = 26
+const PAD = 10
 
 const props = defineProps({
   partidos: { type: Array, default: () => [] },
@@ -20,30 +27,85 @@ const { load, crestsForPartido, crestsLoaded } = useTeamCrests()
 onMounted(load)
 
 const tercerPuesto = computed(() =>
-  props.partidos.find((p) => p.ronda?.includes('Tercer'))
+  props.partidos.find((p) => p.ronda?.toLowerCase().includes('tercer'))
 )
+
+function placeholderPartido(fase, idx) {
+  return {
+    id: `ph-${fase}-${idx}`,
+    fase,
+    equipo_local: 'Por definir',
+    equipo_visitante: 'Por definir',
+    orden: idx,
+  }
+}
+
+function centerY(roundIdx, matchIdx) {
+  const roundSpan = Math.pow(2, roundIdx) * SPACING
+  const roundOffset = ((Math.pow(2, roundIdx) - 1) * SPACING) / 2
+  return TITLE_H + PAD + SLOT_H / 2 + matchIdx * roundSpan + roundOffset
+}
+
+function slotTop(roundIdx, matchIdx) {
+  return centerY(roundIdx, matchIdx) - SLOT_H / 2
+}
+
+function slotLeft(roundIdx) {
+  return PAD + roundIdx * (COL_W + GAP_W)
+}
 
 const columnas = computed(() => {
   crestsLoaded.value
   return RONDAS.map((r, roundIdx) => {
-    const matches = props.partidos
-      .filter((p) => p.fase === r.fase && !p.ronda?.includes('Tercer'))
+    const realMatches = props.partidos
+      .filter((p) => p.fase === r.fase && !p.ronda?.toLowerCase().includes('tercer'))
       .sort((a, b) => a.orden - b.orden)
-      .map((partido, matchIdx) => ({
+
+    const matches = Array.from({ length: r.slots }, (_, matchIdx) => {
+      const partido = realMatches[matchIdx] || placeholderPartido(r.fase, matchIdx)
+      return {
         partido,
         crests: crestsForPartido(partido),
-        pred: props.predicciones[partido.id],
-        marginTop: slotMargin(roundIdx, matchIdx),
-      }))
+        pred: props.predicciones[partido.id] ?? null,
+        matchIdx,
+        roundIdx,
+        isPlaceholder: !realMatches[matchIdx],
+        top: slotTop(roundIdx, matchIdx),
+        left: slotLeft(roundIdx),
+      }
+    })
+
     return { ...r, matches, roundIdx }
-  }).filter((c) => c.matches.length > 0)
+  })
 })
 
-function slotMargin(roundIdx, matchIdx) {
-  const unit = Math.pow(2, roundIdx) * 2.75
-  if (matchIdx === 0) return `${unit * 0.35}rem`
-  return `${unit}rem`
-}
+const boardSize = computed(() => {
+  const w = PAD * 2 + RONDAS.length * COL_W + (RONDAS.length - 1) * GAP_W
+  const h = centerY(0, 15) + SLOT_H / 2 + PAD
+  return { w, h }
+})
+
+const connectorPaths = computed(() => {
+  const paths = []
+  for (let r = 0; r < RONDAS.length - 1; r++) {
+    const slots = RONDAS[r].slots
+    const xOut = slotLeft(r) + COL_W
+    const xMid = xOut + GAP_W / 2
+    const xNext = slotLeft(r + 1)
+
+    for (let i = 0; i < slots; i += 2) {
+      const y1 = centerY(r, i)
+      const y2 = centerY(r, i + 1)
+      const yTarget = centerY(r + 1, i / 2)
+
+      paths.push(`M ${xOut} ${y1} H ${xMid}`)
+      paths.push(`M ${xOut} ${y2} H ${xMid}`)
+      paths.push(`M ${xMid} ${y1} V ${y2}`)
+      paths.push(`M ${xMid} ${yTarget} H ${xNext}`)
+    }
+  }
+  return paths
+})
 
 function score(pred, side) {
   if (!pred) return null
@@ -58,81 +120,105 @@ function isPlaceholder(name) {
 function shortName(name) {
   if (!name) return '—'
   if (isPlaceholder(name)) return 'TBD'
-  if (name.length <= 14) return name
-  return name.slice(0, 12) + '…'
+  if (name.length <= 12) return name
+  return name.slice(0, 10) + '…'
 }
 </script>
 
 <template>
   <div class="bracket-wrap">
-    <p class="bracket-hint">Deslizá horizontalmente para ver el cuadro completo.</p>
+    <p class="bracket-hint">Deslizá horizontal y vertical para ver todo el cuadro</p>
 
-    <div v-if="columnas.length === 0" class="empty-state">
-      Todavía no hay partidos de eliminatorias cargados.
-    </div>
+    <div class="bracket-scroll">
+      <div
+        class="bracket-canvas"
+        :style="{ width: `${boardSize.w}px`, height: `${boardSize.h}px` }"
+      >
+        <svg
+          class="bracket-svg"
+          :width="boardSize.w"
+          :height="boardSize.h"
+          aria-hidden="true"
+        >
+          <path
+            v-for="(d, i) in connectorPaths"
+            :key="i"
+            :d="d"
+            class="bracket-path"
+          />
+        </svg>
 
-    <div v-else class="bracket-scroll">
-      <div class="bracket-board">
+        <div
+          v-for="col in columnas"
+          :key="`title-${col.fase}`"
+          class="bracket-round-label"
+          :class="{ 'bracket-round-label--final': col.fase === 'final' }"
+          :style="{ left: `${slotLeft(col.roundIdx)}px`, width: `${COL_W}px` }"
+        >
+          <span v-if="col.fase === 'final'" class="bracket-trophy">🏆</span>
+          {{ col.label }}
+        </div>
+
         <div
           v-for="col in columnas"
           :key="col.fase"
-          class="bracket-column"
-          :data-round="col.roundIdx"
         >
-          <div class="bracket-col-title">{{ col.label }}</div>
-          <div
+          <article
             v-for="item in col.matches"
             :key="item.partido.id"
-            class="bracket-slot"
-            :style="{ marginTop: item.marginTop }"
+            class="bracket-match"
+            :class="{
+              'bracket-match--empty': item.isPlaceholder,
+              'bracket-match--final': col.fase === 'final',
+            }"
+            :style="{ top: `${item.top}px`, left: `${item.left}px`, width: `${COL_W}px`, height: `${SLOT_H}px` }"
           >
-            <div class="bracket-node">
-              <div
-                class="bracket-team"
-                :class="{ 'bracket-team--tbd': isPlaceholder(item.partido.equipo_local) }"
-              >
-                <img
-                  v-if="item.crests.local"
-                  :src="item.crests.local"
-                  class="bracket-crest"
-                  alt=""
-                />
-                <span v-else class="bracket-crest bracket-crest--ph" />
-                <span class="bracket-team-name">{{ shortName(item.partido.equipo_local) }}</span>
-                <span v-if="score(item.pred, 'local') != null" class="bracket-score">
-                  {{ score(item.pred, 'local') }}
-                </span>
-              </div>
-              <div
-                class="bracket-team"
-                :class="{ 'bracket-team--tbd': isPlaceholder(item.partido.equipo_visitante) }"
-              >
-                <img
-                  v-if="item.crests.visitante"
-                  :src="item.crests.visitante"
-                  class="bracket-crest"
-                  alt=""
-                />
-                <span v-else class="bracket-crest bracket-crest--ph" />
-                <span class="bracket-team-name">{{
-                  shortName(item.partido.equipo_visitante)
-                }}</span>
-                <span v-if="score(item.pred, 'visitante') != null" class="bracket-score">
-                  {{ score(item.pred, 'visitante') }}
-                </span>
-              </div>
+            <div
+              class="bracket-team"
+              :class="{ 'bracket-team--tbd': isPlaceholder(item.partido.equipo_local) }"
+            >
+              <img
+                v-if="item.crests.local"
+                :src="item.crests.local"
+                class="bracket-crest"
+                alt=""
+              />
+              <span v-else class="bracket-crest bracket-crest--ph" />
+              <span class="bracket-team-name">{{ shortName(item.partido.equipo_local) }}</span>
+              <span v-if="score(item.pred, 'local') != null" class="bracket-score">
+                {{ score(item.pred, 'local') }}
+              </span>
             </div>
-          </div>
+            <div
+              class="bracket-team"
+              :class="{ 'bracket-team--tbd': isPlaceholder(item.partido.equipo_visitante) }"
+            >
+              <img
+                v-if="item.crests.visitante"
+                :src="item.crests.visitante"
+                class="bracket-crest"
+                alt=""
+              />
+              <span v-else class="bracket-crest bracket-crest--ph" />
+              <span class="bracket-team-name">{{
+                shortName(item.partido.equipo_visitante)
+              }}</span>
+              <span v-if="score(item.pred, 'visitante') != null" class="bracket-score">
+                {{ score(item.pred, 'visitante') }}
+              </span>
+            </div>
+          </article>
         </div>
       </div>
     </div>
 
-    <div v-if="tercerPuesto" class="bracket-third">
+    <div class="bracket-third">
       <span class="bracket-third-label">3er puesto</span>
-      <span class="bracket-third-match">
+      <span v-if="tercerPuesto" class="bracket-third-match">
         {{ shortName(tercerPuesto.equipo_local) }} vs
         {{ shortName(tercerPuesto.equipo_visitante) }}
       </span>
+      <span v-else class="bracket-third-match bracket-third-match--tbd">Por definir</span>
     </div>
   </div>
 </template>
