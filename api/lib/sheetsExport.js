@@ -11,10 +11,54 @@ const TAB_NAMES = [
 ]
 
 function parseCredentials(raw) {
+  const trimmed = String(raw || '').trim()
   try {
-    return JSON.parse(raw)
+    return JSON.parse(trimmed)
   } catch {
-    return JSON.parse(Buffer.from(raw, 'base64').toString('utf8'))
+    try {
+      return JSON.parse(Buffer.from(trimmed, 'base64').toString('utf8'))
+    } catch {
+      throw new Error(
+        'GOOGLE_SERVICE_ACCOUNT_JSON inválido. Pegá el JSON en una línea o en base64 en Vercel.'
+      )
+    }
+  }
+}
+
+function normalizeSpreadsheetId(raw) {
+  const trimmed = String(raw || '').trim().replace(/^['"]|['"]$/g, '')
+  const fromUrl = trimmed.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/)
+  return fromUrl ? fromUrl[1] : trimmed
+}
+
+function googleSheetsErrorMessage(err, spreadsheetId, serviceAccountEmail) {
+  const msg = String(err?.message || err || '')
+  if (msg.includes('Requested entity was not found')) {
+    return [
+      'No se encontró el Google Sheet.',
+      `ID usado: ${spreadsheetId}`,
+      'Verificá GOOGLE_SHEETS_ID en Vercel (solo el ID, no la URL completa).',
+      serviceAccountEmail
+        ? `Compartí el sheet con ${serviceAccountEmail} como Editor.`
+        : 'Compartí el sheet con el email del service account como Editor.',
+    ].join(' ')
+  }
+  if (msg.includes('The caller does not have permission') || err?.code === 403) {
+    return [
+      'Sin permiso sobre el Google Sheet.',
+      serviceAccountEmail
+        ? `Compartí el spreadsheet con ${serviceAccountEmail} como Editor.`
+        : 'Compartí el spreadsheet con el service account como Editor.',
+    ].join(' ')
+  }
+  return msg || 'Error al exportar a Google Sheets'
+}
+
+async function withSheetsError(fn, spreadsheetId, credentials) {
+  try {
+    return await fn()
+  } catch (err) {
+    throw new Error(googleSheetsErrorMessage(err, spreadsheetId, credentials?.client_email))
   }
 }
 
@@ -129,10 +173,10 @@ async function ensureTabs(sheets, spreadsheetId) {
 }
 
 export async function exportToGoogleSheets(data, env = process.env) {
-  const spreadsheetId = env.GOOGLE_SHEETS_ID
+  const spreadsheetId = normalizeSpreadsheetId(env.GOOGLE_SHEETS_ID)
   const rawCreds = env.GOOGLE_SERVICE_ACCOUNT_JSON
-  if (!spreadsheetId) throw new Error('Falta GOOGLE_SHEETS_ID')
-  if (!rawCreds) throw new Error('Falta GOOGLE_SERVICE_ACCOUNT_JSON')
+  if (!spreadsheetId) throw new Error('Falta GOOGLE_SHEETS_ID en Vercel')
+  if (!rawCreds) throw new Error('Falta GOOGLE_SERVICE_ACCOUNT_JSON en Vercel')
 
   const credentials = parseCredentials(rawCreds)
   const auth = new google.auth.GoogleAuth({
@@ -142,20 +186,26 @@ export async function exportToGoogleSheets(data, env = process.env) {
   const sheets = google.sheets({ version: 'v4', auth })
   const tables = buildTables(data)
 
-  await ensureTabs(sheets, spreadsheetId)
+  await withSheetsError(() => ensureTabs(sheets, spreadsheetId), spreadsheetId, credentials)
 
   for (const name of TAB_NAMES) {
     const values = tables[name]
-    await sheets.spreadsheets.values.clear({
+    await withSheetsError(
+      async () => {
+        await sheets.spreadsheets.values.clear({
+          spreadsheetId,
+          range: `${name}!A:Z`,
+        })
+        await sheets.spreadsheets.values.update({
+          spreadsheetId,
+          range: `${name}!A1`,
+          valueInputOption: 'RAW',
+          requestBody: { values },
+        })
+      },
       spreadsheetId,
-      range: `${name}!A:Z`,
-    })
-    await sheets.spreadsheets.values.update({
-      spreadsheetId,
-      range: `${name}!A1`,
-      valueInputOption: 'RAW',
-      requestBody: { values },
-    })
+      credentials
+    )
   }
 
   return {
@@ -169,7 +219,9 @@ export async function exportToGoogleSheets(data, env = process.env) {
 export async function handleExportRequest(body, env = process.env) {
   const secret = env.EXPORT_SECRET || env.VITE_EXPORT_SECRET
   if (secret && body?.secret !== secret) {
-    throw new Error('Export secret inválido')
+    throw new Error(
+      'Export secret inválido. EXPORT_SECRET en Vercel y VITE_EXPORT_SECRET en el frontend deben coincidir.'
+    )
   }
   if (!body?.data) throw new Error('Sin datos para exportar')
   return exportToGoogleSheets(body.data, env)
