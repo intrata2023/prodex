@@ -2,6 +2,7 @@
 import { ref, onMounted, computed } from 'vue'
 import AppLayout from '../components/AppLayout.vue'
 import MatchPredictionCard from '../components/MatchPredictionCard.vue'
+import GroupStandingsPanel from '../components/GroupStandingsPanel.vue'
 import { useSession } from '../composables/useSession.js'
 import { useConfig } from '../composables/useConfig.js'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
@@ -11,6 +12,7 @@ const { config, loadConfig } = useConfig()
 const partidos = ref([])
 const predicciones = ref({})
 const loading = ref(true)
+const vista = ref('cargar')
 
 const grupos = computed(() => {
   const map = {}
@@ -80,37 +82,62 @@ async function guardar(payload) {
     <div v-else-if="!supabaseConfigured" class="alert alert-info">
       Configurá Supabase en .env para cargar partidos.
     </div>
-    <div v-else class="accordion" id="gruposAcc">
-      <div v-for="(g, idx) in grupos" :key="g.letra" class="accordion-item">
-        <h2 class="accordion-header">
-          <button
-            class="accordion-button"
-            :class="{ collapsed: idx > 0 }"
-            type="button"
-            data-bs-toggle="collapse"
-            :data-bs-target="'#g' + g.letra"
-          >
-            Grupo {{ g.letra }}
-          </button>
-        </h2>
-        <div
-          :id="'g' + g.letra"
-          class="accordion-collapse collapse"
-          :class="{ show: idx === 0 }"
-          data-bs-parent="#gruposAcc"
+    <template v-else>
+      <div class="view-toggle">
+        <button
+          type="button"
+          class="view-toggle-btn"
+          :class="{ active: vista === 'cargar' }"
+          @click="vista = 'cargar'"
         >
-          <div class="accordion-body">
-            <MatchPredictionCard
-              v-for="p in g.partidos"
-              :key="p.id"
-              :partido="p"
-              :prediccion="predicciones[p.id]"
-              :disabled="bloqueado"
-              @save="guardar"
-            />
+          Cargar
+        </button>
+        <button
+          type="button"
+          class="view-toggle-btn"
+          :class="{ active: vista === 'tablas' }"
+          @click="vista = 'tablas'"
+        >
+          Tablas
+        </button>
+      </div>
+
+      <template v-if="vista === 'cargar'">
+        <div class="accordion" id="gruposAcc">
+          <div v-for="(g, idx) in grupos" :key="g.letra" class="accordion-item">
+            <h2 class="accordion-header">
+              <button
+                class="accordion-button"
+                :class="{ collapsed: idx > 0 }"
+                type="button"
+                data-bs-toggle="collapse"
+                :data-bs-target="'#g' + g.letra"
+              >
+                Grupo {{ g.letra }}
+              </button>
+            </h2>
+            <div
+              :id="'g' + g.letra"
+              class="accordion-collapse collapse"
+              :class="{ show: idx === 0 }"
+              data-bs-parent="#gruposAcc"
+            >
+              <div class="accordion-body">
+                <MatchPredictionCard
+                  v-for="p in g.partidos"
+                  :key="p.id"
+                  :partido="p"
+                  :prediccion="predicciones[p.id]"
+                  :disabled="bloqueado"
+                  @save="guardar"
+                />
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
+      </template>
+
+      <GroupStandingsPanel v-else :partidos="partidos" :predicciones="predicciones" />
+    </template>
   </AppLayout>
 </template>

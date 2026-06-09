@@ -58,11 +58,20 @@ export function useTeamCrests() {
       return crestByExternalId.value.get(partido.external_id)
     }
     return {
-      local: partido.escudo_local || crestByTeam.value?.get(norm(partido.equipo_local)) || null,
-      visitante:
-        partido.escudo_visitante || crestByTeam.value?.get(norm(partido.equipo_visitante)) || null,
+      local: crestForTeam(partido.equipo_local, partido),
+      visitante: crestForTeam(partido.equipo_visitante, partido),
     }
   }
 
-  return { load, crestsForPartido, crestsLoaded }
+  function crestForTeam(nombre, partido = null) {
+    if (partido) {
+      if (partido.equipo_local === nombre && partido.escudo_local) return partido.escudo_local
+      if (partido.equipo_visitante === nombre && partido.escudo_visitante) {
+        return partido.escudo_visitante
+      }
+    }
+    return crestByTeam.value?.get(norm(nombre)) || null
+  }
+
+  return { load, crestsForPartido, crestForTeam, crestsLoaded }
 }
