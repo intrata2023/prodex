@@ -12,9 +12,7 @@ const { load, crestForTeam, crestsLoaded } = useTeamCrests()
 
 onMounted(load)
 
-const tablas = computed(() => buildGroupStandings(props.partidos, props.predicciones))
-const grupos = computed(() => tablas.value.grupos)
-const mejoresTerceros = computed(() => tablas.value.mejoresTerceros)
+const grupos = computed(() => buildGroupStandings(props.partidos, props.predicciones).grupos)
 
 function crestUrl(nombre) {
   crestsLoaded.value
@@ -41,6 +39,9 @@ function badgeLabel(row) {
 <template>
   <div class="group-standings">
     <div class="group-standings-rules">
+      <p class="group-standings-rules-lead">
+        Tablas según <strong>tus predicciones</strong>. No usan resultados reales del torneo.
+      </p>
       <p class="group-standings-rules-title">¿Quién clasifica a 16avos?</p>
       <ul class="group-standings-rules-list">
         <li><strong>1° y 2°</strong> de cada uno de los 12 grupos → <strong>24 equipos</strong></li>
@@ -51,21 +52,8 @@ function badgeLabel(row) {
         <li>Total: <strong>32 equipos</strong> a eliminatorias</li>
       </ul>
       <p class="group-standings-rules-foot">
-        Entre 3°: puntos → dif. de gol → goles a favor. Proyección según
-        <strong>tus predicciones</strong> (no resultados reales).
+        Entre 3°: puntos → dif. de gol → goles a favor.
       </p>
-    </div>
-
-    <div v-if="mejoresTerceros.length" class="group-standings-thirds">
-      <span class="group-standings-thirds-label">Mejores 3° ahora:</span>
-      <span
-        v-for="t in mejoresTerceros"
-        :key="t.grupo + t.nombre"
-        class="group-standings-third-chip"
-      >
-        <img v-if="crestUrl(t.nombre)" :src="crestUrl(t.nombre)" class="group-chip-crest" alt="" />
-        <span>{{ shortName(t.nombre) }} ({{ t.grupo }})</span>
-      </span>
     </div>
 
     <div v-if="grupos.length === 0" class="empty-state">No hay partidos de grupos cargados.</div>
@@ -176,6 +164,18 @@ function badgeLabel(row) {
   border-radius: var(--radius-lg);
 }
 
+.group-standings-rules-lead {
+  margin: 0 0 0.75rem;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+  text-align: center;
+}
+
+.group-standings-rules-lead strong {
+  color: var(--text);
+}
+
 .group-standings-rules-title {
   margin: 0 0 0.5rem;
   font-size: 0.8125rem;
@@ -208,50 +208,6 @@ function badgeLabel(row) {
   font-size: 0.75rem;
   color: var(--text-muted);
   line-height: 1.45;
-}
-
-.group-standings-rules-foot strong {
-  color: var(--text);
-}
-
-.group-standings-thirds {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.375rem;
-  margin-bottom: 1rem;
-  padding: 0.625rem 0.75rem;
-  background: rgba(59, 130, 246, 0.08);
-  border: 1px solid rgba(59, 130, 246, 0.2);
-  border-radius: var(--radius);
-}
-
-.group-standings-thirds-label {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #93c5fd;
-  margin-right: 0.25rem;
-}
-
-.group-standings-third-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.2rem 0.45rem;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.3);
-  font-size: 0.625rem;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.group-chip-crest {
-  width: 0.875rem;
-  height: 0.625rem;
-  object-fit: cover;
-  border-radius: 0.125rem;
 }
 
 .group-standings-pending {
