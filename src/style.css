@@ -586,6 +586,11 @@ a.home-tile:active {
   box-shadow: none !important;
 }
 
+.match-score-input::placeholder {
+  color: rgba(255, 255, 255, 0.22);
+  font-weight: 500;
+}
+
 .match-separator {
   color: var(--text-muted);
   font-weight: 700;

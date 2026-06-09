@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, computed, onMounted } from 'vue'
+import { ref, watch, computed, onMounted, nextTick } from 'vue'
 import { useTeamCrests } from '../composables/useTeamCrests.js'
 
 const props = defineProps({
@@ -13,11 +13,12 @@ const props = defineProps({
 const emit = defineEmits(['save'])
 const { load, crestsForPartido, crestsLoaded } = useTeamCrests()
 
-const golesLocal = ref(null)
-const golesVisitante = ref(null)
+const golesLocal = ref('')
+const golesVisitante = ref('')
 const penales = ref(false)
 const status = ref('idle')
 let debounceTimer = null
+let skipSave = true
 
 const crests = computed(() => {
   crestsLoaded.value
@@ -26,26 +27,50 @@ const crests = computed(() => {
 
 onMounted(load)
 
-function syncFromPred() {
+function formatGoles(val) {
+  return val != null && val !== '' ? String(val) : ''
+}
+
+function parseGoles(val) {
+  if (val === '' || val == null) return null
+  const n = Number(val)
+  if (!Number.isInteger(n) || n < 0 || n > 20) return null
+  return n
+}
+
+function onScoreInput(field, event) {
+  const raw = event.target.value.replace(/\D/g, '').slice(0, 2)
+  if (field === 'local') golesLocal.value = raw
+  else golesVisitante.value = raw
+}
+
+async function syncFromPred() {
+  skipSave = true
   if (props.prediccion) {
-    golesLocal.value = props.prediccion.goles_local
-    golesVisitante.value = props.prediccion.goles_visitante
+    golesLocal.value = formatGoles(props.prediccion.goles_local)
+    golesVisitante.value = formatGoles(props.prediccion.goles_visitante)
     penales.value = props.prediccion.penales ?? false
+  } else {
+    golesLocal.value = ''
+    golesVisitante.value = ''
+    penales.value = false
   }
+  await nextTick()
+  skipSave = false
 }
 
 syncFromPred()
 watch(() => props.prediccion, syncFromPred, { deep: true })
 
 function scheduleSave() {
-  if (props.readonly || props.disabled) return
+  if (skipSave || props.readonly || props.disabled) return
   status.value = 'saving'
   clearTimeout(debounceTimer)
   debounceTimer = setTimeout(() => {
     emit('save', {
       partido_id: props.partido.id,
-      goles_local: golesLocal.value === '' ? null : Number(golesLocal.value),
-      goles_visitante: golesVisitante.value === '' ? null : Number(golesVisitante.value),
+      goles_local: parseGoles(golesLocal.value),
+      goles_visitante: parseGoles(golesVisitante.value),
       penales: penales.value,
     })
     status.value = 'saved'
@@ -79,25 +104,33 @@ watch([golesLocal, golesVisitante, penales], scheduleSave)
       <div class="match-center">
         <div class="match-score-row">
           <input
-            type="number"
-            min="0"
-            max="20"
+            type="text"
             inputmode="numeric"
+            autocomplete="off"
+            autocorrect="off"
+            spellcheck="false"
+            maxlength="2"
             class="form-control match-score-input"
-            v-model.number="golesLocal"
+            :value="golesLocal"
             :disabled="readonly || disabled"
             :aria-label="`Goles ${partido.equipo_local}`"
+            placeholder="–"
+            @input="onScoreInput('local', $event)"
           />
           <span class="match-separator">-</span>
           <input
-            type="number"
-            min="0"
-            max="20"
+            type="text"
             inputmode="numeric"
+            autocomplete="off"
+            autocorrect="off"
+            spellcheck="false"
+            maxlength="2"
             class="form-control match-score-input"
-            v-model.number="golesVisitante"
+            :value="golesVisitante"
             :disabled="readonly || disabled"
             :aria-label="`Goles ${partido.equipo_visitante}`"
+            placeholder="–"
+            @input="onScoreInput('visitante', $event)"
           />
         </div>
       </div>
