@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, computed, onMounted, nextTick } from 'vue'
+import { ref, watch, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useTeamCrests } from '../composables/useTeamCrests.js'
 
 const props = defineProps({
@@ -62,25 +62,47 @@ async function syncFromPred() {
 syncFromPred()
 watch(() => props.prediccion, syncFromPred, { deep: true })
 
+function buildPayload() {
+  return {
+    partido_id: props.partido.id,
+    goles_local: parseGoles(golesLocal.value),
+    goles_visitante: parseGoles(golesVisitante.value),
+    penales: penales.value,
+  }
+}
+
+function shouldPersist(payload) {
+  const { goles_local: gl, goles_visitante: gv } = payload
+  return (gl == null && gv == null) || (gl != null && gv != null)
+}
+
+function flushSave() {
+  if (skipSave || props.readonly || props.disabled) return
+  const payload = buildPayload()
+  if (!shouldPersist(payload)) return
+  clearTimeout(debounceTimer)
+  emit('save', payload)
+  status.value = 'saved'
+  setTimeout(() => {
+    if (status.value === 'saved') status.value = 'idle'
+  }, 2000)
+}
+
 function scheduleSave() {
   if (skipSave || props.readonly || props.disabled) return
+  const payload = buildPayload()
+  if (!shouldPersist(payload)) {
+    clearTimeout(debounceTimer)
+    status.value = 'idle'
+    return
+  }
   status.value = 'saving'
   clearTimeout(debounceTimer)
-  debounceTimer = setTimeout(() => {
-    emit('save', {
-      partido_id: props.partido.id,
-      goles_local: parseGoles(golesLocal.value),
-      goles_visitante: parseGoles(golesVisitante.value),
-      penales: penales.value,
-    })
-    status.value = 'saved'
-    setTimeout(() => {
-      if (status.value === 'saved') status.value = 'idle'
-    }, 2000)
-  }, 400)
+  debounceTimer = setTimeout(flushSave, 400)
 }
 
 watch([golesLocal, golesVisitante, penales], scheduleSave)
+onBeforeUnmount(flushSave)
 </script>
 
 <template>

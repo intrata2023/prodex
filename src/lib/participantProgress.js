@@ -3,8 +3,14 @@ export function normalizeGrupo(grupo) {
   return g || '?'
 }
 
-function normTeam(name) {
-  return String(name || '').trim().toLowerCase()
+export function normTeam(name) {
+  return String(name || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .replace(/\s+/g, ' ')
 }
 
 export function prediccionCompleta(pr) {
@@ -21,6 +27,19 @@ export function progressPct(done, total) {
   return Math.round((done / total) * 100)
 }
 
+export function sameTeams(a, b) {
+  const teamsA = new Set([normTeam(a?.equipo_local), normTeam(a?.equipo_visitante)])
+  const teamsB = new Set([normTeam(b?.equipo_local), normTeam(b?.equipo_visitante)])
+  if (teamsA.size !== teamsB.size) return false
+  for (const t of teamsA) if (!teamsB.has(t)) return false
+  return true
+}
+
+export function mismoCruce(a, b) {
+  if (!a || !b) return false
+  return normalizeGrupo(a.grupo) === normalizeGrupo(b.grupo) && sameTeams(a, b)
+}
+
 export function fixtureKey(partido) {
   const a = normTeam(partido.equipo_local)
   const b = normTeam(partido.equipo_visitante)
@@ -28,38 +47,89 @@ export function fixtureKey(partido) {
   return `${normalizeGrupo(partido.grupo)}|${pair}`
 }
 
+function elegirCanonico(actual, candidato) {
+  if (!actual) return candidato
+  if (!actual.external_id && candidato.external_id) return candidato
+  if ((candidato.orden ?? 9999) < (actual.orden ?? 9999)) return candidato
+  return actual
+}
+
+function mergeFixtures(fixtures, porGrupo) {
+  for (const grupo of porGrupo.keys()) {
+    const keys = [...porGrupo.get(grupo)]
+    const eliminadas = new Set()
+
+    for (let i = 0; i < keys.length; i++) {
+      const keyA = keys[i]
+      if (eliminadas.has(keyA)) continue
+      const fxA = fixtures.get(keyA)
+      if (!fxA) continue
+
+      for (let j = i + 1; j < keys.length; j++) {
+        const keyB = keys[j]
+        if (eliminadas.has(keyB)) continue
+        const fxB = fixtures.get(keyB)
+        if (!fxB || !sameTeams(fxA.canonical, fxB.canonical)) continue
+
+        fxA.partidos.push(...fxB.partidos)
+        fxA.canonical = elegirCanonico(fxA.canonical, fxB.canonical)
+        fixtures.delete(keyB)
+        eliminadas.add(keyB)
+        porGrupo.get(grupo).delete(keyB)
+      }
+    }
+  }
+}
+
 export function indexPartidosGrupos(partidosG) {
   const fixtures = new Map()
   const porGrupo = new Map()
+  const keyPorExternal = new Map()
 
   for (const partido of partidosG || []) {
     const grupo = normalizeGrupo(partido.grupo)
-    const key = fixtureKey({ ...partido, grupo })
+    let key = fixtureKey({ ...partido, grupo })
+
+    if (partido.external_id != null && keyPorExternal.has(partido.external_id)) {
+      key = keyPorExternal.get(partido.external_id)
+    }
+
     if (!fixtures.has(key)) {
       fixtures.set(key, { grupo, key, partidos: [], canonical: partido })
     }
+
     const fx = fixtures.get(key)
     fx.partidos.push(partido)
+    fx.canonical = elegirCanonico(fx.canonical, partido)
 
-    const canon = fx.canonical
-    const mejorCanon =
-      (!canon.external_id && partido.external_id) ||
-      (partido.orden ?? 9999) < (canon.orden ?? 9999)
-    if (mejorCanon) fx.canonical = partido
+    if (partido.external_id != null) {
+      keyPorExternal.set(partido.external_id, key)
+    }
 
     if (!porGrupo.has(grupo)) porGrupo.set(grupo, new Set())
     porGrupo.get(grupo).add(key)
   }
 
+  mergeFixtures(fixtures, porGrupo)
   return { fixtures, porGrupo }
 }
 
-function buildPredMap(predsP) {
-  return Object.fromEntries(predsP.map((pr) => [pr.partido_id, pr]))
+export function buildPartidoById(partidosG) {
+  return new Map((partidosG || []).map((p) => [p.id, p]))
 }
 
-function fixtureCompleta(fx, predMap) {
-  return fx.partidos.some((p) => prediccionCompleta(predMap[p.id]))
+export function prediccionParaFixture(fx, predsP, partidoById) {
+  for (const pr of predsP) {
+    const partido = partidoById.get(pr.partido_id)
+    if (!partido || !mismoCruce(partido, fx.canonical)) continue
+    return pr
+  }
+  return null
+}
+
+function fixtureCompleta(fx, predsP, partidoById) {
+  const pr = prediccionParaFixture(fx, predsP, partidoById)
+  return prediccionCompleta(pr)
 }
 
 export function countCompletas(preds, partidoIds) {
@@ -74,10 +144,10 @@ export function countCompletas(preds, partidoIds) {
 
 export function countGruposCompletas(partidosG, predsP) {
   const { fixtures } = indexPartidosGrupos(partidosG)
-  const predMap = buildPredMap(predsP)
+  const partidoById = buildPartidoById(partidosG)
   let done = 0
   for (const fx of fixtures.values()) {
-    if (fixtureCompleta(fx, predMap)) done++
+    if (fixtureCompleta(fx, predsP, partidoById)) done++
   }
   return { done, total: fixtures.size }
 }
@@ -98,7 +168,7 @@ export function detectarDuplicados(partidosG) {
 
 export function gruposPendientesPorParticipante(partidosG, predsP) {
   const { fixtures, porGrupo } = indexPartidosGrupos(partidosG)
-  const predMap = buildPredMap(predsP)
+  const partidoById = buildPartidoById(partidosG)
 
   let empezadoGrupos = false
   const pendientes = []
@@ -110,9 +180,9 @@ export function gruposPendientesPorParticipante(partidosG, predsP) {
 
     for (const key of keys) {
       const fx = fixtures.get(key)
-      const empezada = fx.partidos.some((p) => prediccionEmpezada(predMap[p.id]))
-      if (empezada) tieneEmpezado = true
-      if (!fixtureCompleta(fx, predMap)) tieneIncompleto = true
+      const pr = prediccionParaFixture(fx, predsP, partidoById)
+      if (prediccionEmpezada(pr)) tieneEmpezado = true
+      if (!prediccionCompleta(pr)) tieneIncompleto = true
     }
 
     if (tieneEmpezado) empezadoGrupos = true
@@ -124,20 +194,18 @@ export function gruposPendientesPorParticipante(partidosG, predsP) {
 
 export function listPartidosPendientes(partidosG, predsP) {
   const { fixtures } = indexPartidosGrupos(partidosG)
-  const predMap = buildPredMap(predsP)
+  const partidoById = buildPartidoById(partidosG)
   const items = []
 
   for (const fx of fixtures.values()) {
-    if (fixtureCompleta(fx, predMap)) continue
+    const pr = prediccionParaFixture(fx, predsP, partidoById)
+    if (prediccionCompleta(pr)) continue
 
     const p = fx.canonical
-    const preds = fx.partidos.map((pt) => predMap[pt.id]).filter(Boolean)
-    const empezada = preds.some(prediccionEmpezada)
     let estado = 'sin_cargar'
     let detalle = ''
 
-    if (empezada) {
-      const pr = preds.find(prediccionEmpezada)
+    if (prediccionEmpezada(pr)) {
       estado = 'incompleta'
       detalle = `${pr?.goles_local ?? '–'}–${pr?.goles_visitante ?? '–'}`
     }
@@ -159,22 +227,56 @@ export function listPartidosPendientes(partidosG, predsP) {
   )
 }
 
+export function resolveCanonicalPartidoId(partidosG, partidoId) {
+  const partidoById = buildPartidoById(partidosG)
+  const partido = partidoById.get(partidoId)
+  if (!partido) return partidoId
+
+  const { fixtures } = indexPartidosGrupos(partidosG)
+  for (const fx of fixtures.values()) {
+    if (mismoCruce(partido, fx.canonical)) return fx.canonical.id
+  }
+  return partidoId
+}
+
 export function mapPrediccionesACanonica(partidosG, predicciones = {}) {
   const { fixtures } = indexPartidosGrupos(partidosG)
+  const partidoById = buildPartidoById(partidosG)
   const map = { ...predicciones }
 
   for (const fx of fixtures.values()) {
     const canonicalId = fx.canonical.id
-    for (const partido of fx.partidos) {
-      const pred = predicciones[partido.id]
-      if (pred) {
-        map[canonicalId] = { ...pred, partido_id: canonicalId }
-        break
-      }
+    const pr = prediccionParaFixture(fx, Object.values(predicciones), partidoById)
+    if (pr) {
+      map[canonicalId] = { ...pr, partido_id: canonicalId }
     }
   }
 
   return map
+}
+
+export function reparacionesPredicciones(partidosG, predicciones = {}) {
+  const { fixtures } = indexPartidosGrupos(partidosG)
+  const partidoById = buildPartidoById(partidosG)
+  const fixes = []
+
+  for (const fx of fixtures.values()) {
+    const canonicalId = fx.canonical.id
+    const actual = predicciones[canonicalId]
+    if (prediccionCompleta(actual)) continue
+
+    const pr = prediccionParaFixture(fx, Object.values(predicciones), partidoById)
+    if (!prediccionCompleta(pr) || pr.partido_id === canonicalId) continue
+
+    fixes.push({
+      partido_id: canonicalId,
+      goles_local: pr.goles_local,
+      goles_visitante: pr.goles_visitante,
+      penales: pr.penales ?? false,
+    })
+  }
+
+  return fixes
 }
 
 export function badgeGrupos(done, total) {

@@ -6,7 +6,12 @@ import GroupStandingsPanel from '../components/GroupStandingsPanel.vue'
 import { useSession } from '../composables/useSession.js'
 import { useConfig } from '../composables/useConfig.js'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
-import { indexPartidosGrupos, mapPrediccionesACanonica } from '../lib/participantProgress.js'
+import {
+  indexPartidosGrupos,
+  mapPrediccionesACanonica,
+  resolveCanonicalPartidoId,
+  reparacionesPredicciones,
+} from '../lib/participantProgress.js'
 
 const { participanteId } = useSession()
 const { config, loadConfig } = useConfig()
@@ -53,22 +58,35 @@ async function cargar() {
     .select('*')
     .eq('participante_id', participanteId.value)
   const predMap = Object.fromEntries((preds || []).map((p) => [p.partido_id, p]))
+  const fixes = reparacionesPredicciones(partidos.value, predMap)
+  for (const fix of fixes) {
+    await supabase.rpc('upsert_prediccion', {
+      p_participante_id: participanteId.value,
+      p_partido_id: fix.partido_id,
+      p_goles_local: fix.goles_local,
+      p_goles_visitante: fix.goles_visitante,
+      p_penales: fix.penales ?? false,
+    })
+    predMap[fix.partido_id] = { ...fix, participante_id: participanteId.value }
+  }
   predicciones.value = mapPrediccionesACanonica(partidos.value, predMap)
   loading.value = false
 }
 
 async function guardar(payload) {
   if (bloqueado.value || !supabaseConfigured) return
+  const partidoId = resolveCanonicalPartidoId(partidos.value, payload.partido_id)
   await supabase.rpc('upsert_prediccion', {
     p_participante_id: participanteId.value,
-    p_partido_id: payload.partido_id,
+    p_partido_id: partidoId,
     p_goles_local: payload.goles_local,
     p_goles_visitante: payload.goles_visitante,
     p_penales: false,
   })
-  predicciones.value[payload.partido_id] = {
-    ...predicciones.value[payload.partido_id],
+  predicciones.value[partidoId] = {
+    ...predicciones.value[partidoId],
     ...payload,
+    partido_id: partidoId,
   }
 }
 </script>

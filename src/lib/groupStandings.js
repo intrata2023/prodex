@@ -1,4 +1,8 @@
-import { indexPartidosGrupos } from './participantProgress.js'
+import {
+  indexPartidosGrupos,
+  buildPartidoById,
+  prediccionParaFixture,
+} from './participantProgress.js'
 
 export const BEST_THIRDS_COUNT = 8
 
@@ -68,17 +72,14 @@ function applyThirdQualification(grupos) {
   }))
 }
 
-function prediccionDeFixture(fx, predicciones) {
-  for (const partido of fx.partidos) {
-    const pred = predicciones[partido.id]
-    if (pred?.goles_local != null && pred?.goles_visitante != null) return pred
-  }
-  return null
-}
-
 export function buildGroupStandings(partidos, predicciones = {}) {
   const gruposPartidos = (partidos || []).filter((p) => p.fase === 'grupos')
   const { fixtures, porGrupo } = indexPartidosGrupos(gruposPartidos)
+  const partidoById = buildPartidoById(gruposPartidos)
+  const predsLista = Object.entries(predicciones).map(([partido_id, pr]) => ({
+    ...pr,
+    partido_id,
+  }))
   const byGrupo = {}
 
   for (const letra of porGrupo.keys()) {
@@ -103,7 +104,7 @@ export function buildGroupStandings(partidos, predicciones = {}) {
 
       for (const fx of grupo.fixtures) {
         const partido = fx.canonical
-        const pred = prediccionDeFixture(fx, predicciones)
+        const pred = prediccionParaFixture(fx, predsLista, partidoById)
         if (!pred) continue
         partidosConPrediccion += 1
         applyResult(

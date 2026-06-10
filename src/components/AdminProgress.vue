@@ -8,6 +8,7 @@ import {
   gruposPendientesPorParticipante,
   listPartidosPendientes,
   detectarDuplicados,
+  reparacionesPredicciones,
   badgeGrupos,
   badgeEliminatorias,
 } from '../lib/participantProgress.js'
@@ -66,13 +67,37 @@ async function cargar() {
 
   duplicadosDb.value = detectarDuplicados(partidosG)
 
+  const predMapPorParticipante = {}
+  for (const pr of preds || []) {
+    if (!predMapPorParticipante[pr.participante_id]) predMapPorParticipante[pr.participante_id] = {}
+    predMapPorParticipante[pr.participante_id][pr.partido_id] = pr
+  }
+
+  for (const p of participantes || []) {
+    const predMap = predMapPorParticipante[p.id] || {}
+    const fixes = reparacionesPredicciones(partidosG, predMap)
+    for (const fix of fixes) {
+      await supabase.rpc('upsert_prediccion', {
+        p_participante_id: p.id,
+        p_partido_id: fix.partido_id,
+        p_goles_local: fix.goles_local,
+        p_goles_visitante: fix.goles_visitante,
+        p_penales: fix.penales ?? false,
+      })
+      predMap[fix.partido_id] = { ...fix, participante_id: p.id, partido_id: fix.partido_id }
+    }
+    predMapPorParticipante[p.id] = predMap
+  }
+
+  const predsReparadas = Object.values(predMapPorParticipante).flatMap((map) => Object.values(map))
+
   const gruposStats = countGruposCompletas(partidosG, [])
   const totalG = gruposStats.total
   const totalE = partidosE?.length || 0
   const idsE = new Set((partidosE || []).map((p) => p.id))
 
   filas.value = (participantes || []).map((p) => {
-    const predsP = (preds || []).filter((pr) => pr.participante_id === p.id)
+    const predsP = predsReparadas.filter((pr) => pr.participante_id === p.id)
     const { done: doneG } = countGruposCompletas(partidosG, predsP)
     const doneE = countCompletas(predsP, idsE)
     const camp = (campeones || []).find((c) => c.participante_id === p.id)
