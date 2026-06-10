@@ -6,6 +6,7 @@ import GroupStandingsPanel from '../components/GroupStandingsPanel.vue'
 import { useSession } from '../composables/useSession.js'
 import { useConfig } from '../composables/useConfig.js'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
+import { indexPartidosGrupos, mapPrediccionesACanonica } from '../lib/participantProgress.js'
 
 const { participanteId } = useSession()
 const { config, loadConfig } = useConfig()
@@ -15,15 +16,15 @@ const loading = ref(true)
 const vista = ref('cargar')
 
 const grupos = computed(() => {
-  const map = {}
-  for (const p of partidos.value) {
-    const g = p.grupo || '?'
-    if (!map[g]) map[g] = []
-    map[g].push(p)
-  }
-  return Object.keys(map)
+  const { fixtures, porGrupo } = indexPartidosGrupos(partidos.value)
+  return [...porGrupo.keys()]
     .sort()
-    .map((g) => ({ letra: g, partidos: map[g] }))
+    .map((letra) => ({
+      letra,
+      partidos: [...porGrupo.get(letra)]
+        .map((key) => fixtures.get(key).canonical)
+        .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)),
+    }))
 })
 
 const bloqueado = computed(() => !config.value.grupos_abiertos)
@@ -51,7 +52,8 @@ async function cargar() {
     .from('predicciones')
     .select('*')
     .eq('participante_id', participanteId.value)
-  predicciones.value = Object.fromEntries((preds || []).map((p) => [p.partido_id, p]))
+  const predMap = Object.fromEntries((preds || []).map((p) => [p.partido_id, p]))
+  predicciones.value = mapPrediccionesACanonica(partidos.value, predMap)
   loading.value = false
 }
 

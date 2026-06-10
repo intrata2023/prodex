@@ -3,13 +3,17 @@ import { ref, computed, onMounted } from 'vue'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
 import {
   countCompletas,
+  countGruposCompletas,
   progressPct,
   gruposPendientesPorParticipante,
+  listPartidosPendientes,
+  detectarDuplicados,
   badgeGrupos,
   badgeEliminatorias,
 } from '../lib/participantProgress.js'
 
 const filas = ref([])
+const duplicadosDb = ref([])
 const ordenPor = ref('pendientes')
 
 const filasOrdenadas = computed(() => {
@@ -51,25 +55,29 @@ async function cargar() {
 
   const { data: partidosG } = await supabase
     .from('partidos')
-    .select('id, grupo')
+    .select('id, grupo, equipo_local, equipo_visitante, orden, external_id')
     .eq('fase', 'grupos')
+    .order('orden')
   const { data: partidosE } = await supabase.from('partidos').select('id').neq('fase', 'grupos')
   const { data: preds } = await supabase
     .from('predicciones')
     .select('participante_id, partido_id, goles_local, goles_visitante')
   const { data: campeones } = await supabase.from('prediccion_campeon').select('participante_id, equipo')
 
-  const totalG = partidosG?.length || 0
+  duplicadosDb.value = detectarDuplicados(partidosG)
+
+  const gruposStats = countGruposCompletas(partidosG, [])
+  const totalG = gruposStats.total
   const totalE = partidosE?.length || 0
-  const idsG = new Set((partidosG || []).map((p) => p.id))
   const idsE = new Set((partidosE || []).map((p) => p.id))
 
   filas.value = (participantes || []).map((p) => {
     const predsP = (preds || []).filter((pr) => pr.participante_id === p.id)
-    const doneG = countCompletas(predsP, idsG)
+    const { done: doneG } = countGruposCompletas(partidosG, predsP)
     const doneE = countCompletas(predsP, idsE)
     const camp = (campeones || []).find((c) => c.participante_id === p.id)
     const { empezadoGrupos, gruposPendientes } = gruposPendientesPorParticipante(partidosG, predsP)
+    const partidosPendientes = listPartidosPendientes(partidosG, predsP)
 
     const pctG = progressPct(doneG, totalG)
     const pctE = progressPct(doneE, totalE)
@@ -86,8 +94,14 @@ async function cargar() {
       totalE,
       empezadoGrupos,
       gruposPendientes,
+      partidosPendientes,
     }
   })
+}
+
+function estadoPartido(item) {
+  if (item.estado === 'incompleta') return `Incompleto (${item.detalle})`
+  return 'Sin cargar'
 }
 
 onMounted(cargar)
@@ -98,8 +112,19 @@ defineExpose({ cargar })
   <div>
     <h3 class="section-title">Progreso de participantes</h3>
     <p class="text-muted small mb-3">
-      Quienes ya empezaron grupos muestran en qué letras les falta completar todos los partidos.
+      El conteo de grupos usa cruces únicos (local vs visitante). Si hay duplicados en la base,
+      no penaliza a quien ya cargó ese partido.
     </p>
+    <div v-if="duplicadosDb.length" class="alert alert-warning py-2 mb-3">
+      <strong>Partidos duplicados en la base ({{ duplicadosDb.length }}):</strong>
+      revisá Admin → Partidos y eliminá el sobrante.
+      <ul class="progress-duplicados-list mb-0 mt-2">
+        <li v-for="d in duplicadosDb" :key="d.partido_ids.join('-')">
+          Grupo {{ d.grupo }}: {{ d.equipo_local }} vs {{ d.equipo_visitante }}
+          ({{ d.cantidad }} filas)
+        </li>
+      </ul>
+    </div>
     <div class="progress-sort mb-3">
       <label class="progress-sort-label" for="progress-sort">Ordenar por</label>
       <select id="progress-sort" v-model="ordenPor" class="form-select">
@@ -130,16 +155,18 @@ defineExpose({ cargar })
             <span class="progress-fraction">{{ f.doneE }}/{{ f.totalE }}</span>
           </div>
         </div>
-        <div
-          v-if="f.empezadoGrupos && f.gruposPendientes.length"
-          class="progress-grupos-pendientes"
-        >
-          <span class="progress-grupos-label">Falta completar:</span>
-          <span
-            v-for="g in f.gruposPendientes"
-            :key="g"
-            class="progress-grupo-badge"
-          >{{ g }}</span>
+        <div v-if="f.partidosPendientes.length" class="progress-partidos-pendientes">
+          <span class="progress-grupos-label">Partidos pendientes ({{ f.partidosPendientes.length }})</span>
+          <div
+            v-for="m in f.partidosPendientes"
+            :key="m.partido_id"
+            class="progress-partido-item"
+          >
+            <span class="progress-partido-grupo">{{ m.grupo }}</span>
+            <span class="progress-partido-teams">{{ m.equipo_local }} vs {{ m.equipo_visitante }}</span>
+            <span class="progress-partido-estado">{{ estadoPartido(m) }}</span>
+            <span v-if="m.duplicadoEnDb" class="progress-partido-warn">Duplicado en DB</span>
+          </div>
         </div>
       </div>
     </div>

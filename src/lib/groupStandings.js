@@ -1,3 +1,5 @@
+import { indexPartidosGrupos } from './participantProgress.js'
+
 export const BEST_THIRDS_COUNT = 8
 
 function createTeamRow(nombre) {
@@ -66,19 +68,29 @@ function applyThirdQualification(grupos) {
   }))
 }
 
+function prediccionDeFixture(fx, predicciones) {
+  for (const partido of fx.partidos) {
+    const pred = predicciones[partido.id]
+    if (pred?.goles_local != null && pred?.goles_visitante != null) return pred
+  }
+  return null
+}
+
 export function buildGroupStandings(partidos, predicciones = {}) {
+  const gruposPartidos = (partidos || []).filter((p) => p.fase === 'grupos')
+  const { fixtures, porGrupo } = indexPartidosGrupos(gruposPartidos)
   const byGrupo = {}
 
-  for (const partido of partidos) {
-    if (partido.fase !== 'grupos') continue
-    const letra = partido.grupo || '?'
-    if (!byGrupo[letra]) {
-      byGrupo[letra] = { letra, partidos: [], teams: new Map() }
-    }
-    byGrupo[letra].partidos.push(partido)
-    for (const nombre of [partido.equipo_local, partido.equipo_visitante]) {
-      if (!byGrupo[letra].teams.has(nombre)) {
-        byGrupo[letra].teams.set(nombre, createTeamRow(nombre))
+  for (const letra of porGrupo.keys()) {
+    byGrupo[letra] = { letra, fixtures: [], teams: new Map() }
+    for (const key of porGrupo.get(letra)) {
+      const fx = fixtures.get(key)
+      byGrupo[letra].fixtures.push(fx)
+      const partido = fx.canonical
+      for (const nombre of [partido.equipo_local, partido.equipo_visitante]) {
+        if (!byGrupo[letra].teams.has(nombre)) {
+          byGrupo[letra].teams.set(nombre, createTeamRow(nombre))
+        }
       }
     }
   }
@@ -89,9 +101,10 @@ export function buildGroupStandings(partidos, predicciones = {}) {
       const grupo = byGrupo[letra]
       let partidosConPrediccion = 0
 
-      for (const partido of grupo.partidos) {
-        const pred = predicciones[partido.id]
-        if (pred?.goles_local == null || pred?.goles_visitante == null) continue
+      for (const fx of grupo.fixtures) {
+        const partido = fx.canonical
+        const pred = prediccionDeFixture(fx, predicciones)
+        if (!pred) continue
         partidosConPrediccion += 1
         applyResult(
           grupo.teams.get(partido.equipo_local),
@@ -116,9 +129,9 @@ export function buildGroupStandings(partidos, predicciones = {}) {
       return {
         letra,
         standings,
-        partidosTotal: grupo.partidos.length,
+        partidosTotal: grupo.fixtures.length,
         partidosConPrediccion,
-        partidosPendientes: grupo.partidos.length - partidosConPrediccion,
+        partidosPendientes: grupo.fixtures.length - partidosConPrediccion,
       }
     })
 
