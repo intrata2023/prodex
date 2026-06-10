@@ -1,8 +1,38 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
 
 const filas = ref([])
+const ordenPor = ref('pendientes')
+
+const filasOrdenadas = computed(() => {
+  const list = [...filas.value]
+  const cmpNombre = (a, b) => a.nombre.localeCompare(b.nombre, 'es')
+
+  switch (ordenPor.value) {
+    case 'nombre':
+      return list.sort(cmpNombre)
+    case 'pctG-desc':
+      return list.sort((a, b) => b.pctG - a.pctG || cmpNombre(a, b))
+    case 'pctG-asc':
+      return list.sort((a, b) => a.pctG - b.pctG || cmpNombre(a, b))
+    case 'pctE-desc':
+      return list.sort((a, b) => b.pctE - a.pctE || cmpNombre(a, b))
+    case 'pctE-asc':
+      return list.sort((a, b) => a.pctE - b.pctE || cmpNombre(a, b))
+    case 'pendientes':
+    default:
+      return list.sort((a, b) => {
+        const aPend = a.empezadoGrupos && a.gruposPendientes.length
+        const bPend = b.empezadoGrupos && b.gruposPendientes.length
+        if (aPend !== bPend) return bPend - aPend
+        if (a.gruposPendientes.length !== b.gruposPendientes.length) {
+          return b.gruposPendientes.length - a.gruposPendientes.length
+        }
+        return cmpNombre(a, b)
+      })
+  }
+})
 
 function prediccionCompleta(pr) {
   return pr?.goles_local != null && pr?.goles_visitante != null
@@ -66,37 +96,27 @@ async function cargar() {
   const idsG = new Set((partidosG || []).map((p) => p.id))
   const idsE = new Set((partidosE || []).map((p) => p.id))
 
-  filas.value = (participantes || [])
-    .map((p) => {
-      const predsP = (preds || []).filter((pr) => pr.participante_id === p.id)
-      const completos = predsP.filter(prediccionCompleta)
-      const doneG = completos.filter((pr) => idsG.has(pr.partido_id)).length
-      const doneE = completos.filter((pr) => idsE.has(pr.partido_id)).length
-      const camp = (campeones || []).find((c) => c.participante_id === p.id)
-      const { empezadoGrupos, gruposPendientes } = gruposPendientesPorParticipante(partidosG, predsP)
+  filas.value = (participantes || []).map((p) => {
+    const predsP = (preds || []).filter((pr) => pr.participante_id === p.id)
+    const completos = predsP.filter(prediccionCompleta)
+    const doneG = completos.filter((pr) => idsG.has(pr.partido_id)).length
+    const doneE = completos.filter((pr) => idsE.has(pr.partido_id)).length
+    const camp = (campeones || []).find((c) => c.participante_id === p.id)
+    const { empezadoGrupos, gruposPendientes } = gruposPendientesPorParticipante(partidosG, predsP)
 
-      const pctG = totalG ? Math.round((doneG / totalG) * 100) : 0
-      const pctE = totalE ? Math.round((doneE / totalE) * 100) : 0
+    const pctG = totalG ? Math.round((doneG / totalG) * 100) : 0
+    const pctE = totalE ? Math.round((doneE / totalE) * 100) : 0
 
-      return {
-        nombre: p.nombre,
-        grupos: badge(pctG),
-        eliminatorias: badge(pctE, camp?.equipo),
-        pctG,
-        pctE,
-        empezadoGrupos,
-        gruposPendientes,
-      }
-    })
-    .sort((a, b) => {
-      const aPend = a.empezadoGrupos && a.gruposPendientes.length
-      const bPend = b.empezadoGrupos && b.gruposPendientes.length
-      if (aPend !== bPend) return bPend - aPend
-      if (a.gruposPendientes.length !== b.gruposPendientes.length) {
-        return b.gruposPendientes.length - a.gruposPendientes.length
-      }
-      return a.nombre.localeCompare(b.nombre, 'es')
-    })
+    return {
+      nombre: p.nombre,
+      grupos: badge(pctG),
+      eliminatorias: badge(pctE, camp?.equipo),
+      pctG,
+      pctE,
+      empezadoGrupos,
+      gruposPendientes,
+    }
+  })
 }
 
 function badge(pct, campeon = null) {
@@ -115,8 +135,19 @@ defineExpose({ cargar })
     <p class="text-muted small mb-3">
       Quienes ya empezaron grupos muestran en qué letras les falta completar todos los partidos.
     </p>
+    <div class="progress-sort mb-3">
+      <label class="progress-sort-label" for="progress-sort">Ordenar por</label>
+      <select id="progress-sort" v-model="ordenPor" class="form-select">
+        <option value="pendientes">Más grupos pendientes</option>
+        <option value="nombre">Nombre (A → Z)</option>
+        <option value="pctG-desc">% Grupos (mayor a menor)</option>
+        <option value="pctG-asc">% Grupos (menor a mayor)</option>
+        <option value="pctE-desc">% Eliminatorias (mayor a menor)</option>
+        <option value="pctE-asc">% Eliminatorias (menor a mayor)</option>
+      </select>
+    </div>
     <div class="admin-list">
-      <div v-for="f in filas" :key="f.nombre" class="admin-list-item">
+      <div v-for="f in filasOrdenadas" :key="f.nombre" class="admin-list-item">
         <div class="admin-list-item-top">
           <strong>{{ f.nombre }}</strong>
         </div>
