@@ -10,19 +10,34 @@ const TAB_NAMES = [
   'Config',
 ]
 
+function normalizePrivateKey(key) {
+  if (!key || typeof key !== 'string') return key
+  let normalized = key.trim()
+  // En Vercel a veces quedan \n literales en vez de saltos de línea reales.
+  if (normalized.includes('\\n')) {
+    normalized = normalized.replace(/\\n/g, '\n')
+  }
+  return normalized
+}
+
 function parseCredentials(raw) {
   const trimmed = String(raw || '').trim()
+  let credentials
   try {
-    return JSON.parse(trimmed)
+    credentials = JSON.parse(trimmed)
   } catch {
     try {
-      return JSON.parse(Buffer.from(trimmed, 'base64').toString('utf8'))
+      credentials = JSON.parse(Buffer.from(trimmed, 'base64').toString('utf8'))
     } catch {
       throw new Error(
         'GOOGLE_SERVICE_ACCOUNT_JSON inválido. Pegá el JSON en una línea o en base64 en Vercel.'
       )
     }
   }
+  if (credentials?.private_key) {
+    credentials.private_key = normalizePrivateKey(credentials.private_key)
+  }
+  return credentials
 }
 
 function normalizeSpreadsheetId(raw) {
@@ -49,6 +64,14 @@ function googleSheetsErrorMessage(err, spreadsheetId, serviceAccountEmail) {
       serviceAccountEmail
         ? `Compartí el spreadsheet con ${serviceAccountEmail} como Editor.`
         : 'Compartí el spreadsheet con el service account como Editor.',
+    ].join(' ')
+  }
+  if (msg.includes('DECODER') || msg.includes('unsupported') || msg.includes('PEM')) {
+    return [
+      'La clave privada del service account no se pudo leer.',
+      'En Vercel, volvé a pegar GOOGLE_SERVICE_ACCOUNT_JSON: el JSON completo del archivo .json de Google Cloud, en una sola línea.',
+      'Debe incluir "private_key" con -----BEGIN PRIVATE KEY----- y saltos de línea (como \\n en el JSON).',
+      'Alternativa: codificá el JSON en base64 y pegá ese valor.',
     ].join(' ')
   }
   return msg || 'Error al exportar a Google Sheets'
