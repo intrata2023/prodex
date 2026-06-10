@@ -11,6 +11,7 @@ import {
   mapPrediccionesACanonica,
   resolveCanonicalPartidoId,
   reparacionesPredicciones,
+  letrasGruposIncompletos,
 } from '../lib/participantProgress.js'
 
 const { participanteId } = useSession()
@@ -33,6 +34,12 @@ const grupos = computed(() => {
 })
 
 const bloqueado = computed(() => !config.value.grupos_abiertos)
+
+const gruposIncompletos = computed(() =>
+  new Set(letrasGruposIncompletos(partidos.value, predicciones.value))
+)
+
+const faltanGrupos = computed(() => gruposIncompletos.value.size > 0)
 
 onMounted(async () => {
   await loadConfig()
@@ -122,6 +129,11 @@ async function guardar(payload) {
         </button>
       </div>
 
+      <p v-if="faltanGrupos" class="grupos-aviso-incompleto">
+        Todavía no completaste todos los grupos. Revisá los que figuran como
+        <strong>Incompleto</strong>.
+      </p>
+
       <template v-if="vista === 'cargar'">
         <div class="accordion" id="gruposAcc">
           <div v-for="(g, idx) in grupos" :key="g.letra" class="accordion-item">
@@ -133,7 +145,13 @@ async function guardar(payload) {
                 data-bs-toggle="collapse"
                 :data-bs-target="'#g' + g.letra"
               >
-                Grupo {{ g.letra }}
+                <span class="accordion-grupo-label">
+                  <span>Grupo {{ g.letra }}</span>
+                  <span
+                    v-if="gruposIncompletos.has(g.letra)"
+                    class="grupo-incompleto-badge"
+                  >Incompleto</span>
+                </span>
               </button>
             </h2>
             <div

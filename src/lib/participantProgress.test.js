@@ -8,6 +8,7 @@ import {
   detectarDuplicados,
   mapPrediccionesACanonica,
   reparacionesPredicciones,
+  letrasGruposIncompletos,
 } from './participantProgress.js'
 
 const partidosG = [
@@ -68,5 +69,10 @@ console.assert(!gruposPendientes.includes('L'), 'grupo L completo con pred en fi
 
 const duplicados = detectarDuplicados(partidosG)
 console.assert(duplicados.length >= 1, 'detecta duplicados')
+
+const incompletos = letrasGruposIncompletos(partidosG, {
+  1: { partido_id: 1, goles_local: 1, goles_visitante: 0 },
+})
+console.assert(incompletos.includes('B') && incompletos.includes('L'), 'lista grupos incompletos')
 
 console.log('participantProgress.test.js OK')

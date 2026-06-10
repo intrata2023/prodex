@@ -166,6 +166,18 @@ export function detectarDuplicados(partidosG) {
     .sort((a, b) => a.grupo.localeCompare(b.grupo))
 }
 
+export function predsLista(predicciones = {}) {
+  if (Array.isArray(predicciones)) return predicciones
+  return Object.entries(predicciones).map(([partido_id, pr]) => ({
+    ...pr,
+    partido_id: pr?.partido_id ?? partido_id,
+  }))
+}
+
+export function letrasGruposIncompletos(partidosG, predicciones = {}) {
+  return gruposPendientesPorParticipante(partidosG, predsLista(predicciones)).gruposPendientes
+}
+
 export function gruposPendientesPorParticipante(partidosG, predsP) {
   const { fixtures, porGrupo } = indexPartidosGrupos(partidosG)
   const partidoById = buildPartidoById(partidosG)
