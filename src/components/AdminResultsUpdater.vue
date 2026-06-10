@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
+import { fetchAllRows } from '../lib/fetchAll.js'
 import { fetchWorldCupMatches, mapApiMatchToResult, matchPartidoLocal } from '../lib/syncResults.js'
 import { calcularTodosLosPuntos } from '../lib/scoring.js'
 import { useAdminPin } from '../composables/useAdminPin.js'
@@ -95,7 +96,7 @@ async function recalcular() {
     .select('*')
     .eq('activo', true)
   const { data: pts } = await supabase.from('partidos').select('*')
-  const { data: preds } = await supabase.from('predicciones').select('*')
+  const preds = await fetchAllRows(supabase, 'predicciones', '*')
   const { data: res } = await supabase.from('resultados_reales').select('*')
   const { data: campeones } = await supabase.from('prediccion_campeon').select('*')
   const { data: cfg } = await supabase.from('config_public').select('campeon_real').eq('id', 1).single()

@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
+import { fetchAllRows } from '../lib/fetchAll.js'
 import {
   countCompletas,
   countGruposCompletas,
@@ -60,15 +61,17 @@ async function cargar() {
     .eq('fase', 'grupos')
     .order('orden')
   const { data: partidosE } = await supabase.from('partidos').select('id').neq('fase', 'grupos')
-  const { data: preds } = await supabase
-    .from('predicciones')
-    .select('participante_id, partido_id, goles_local, goles_visitante')
+  const preds = await fetchAllRows(
+    supabase,
+    'predicciones',
+    'participante_id, partido_id, goles_local, goles_visitante, penales'
+  )
   const { data: campeones } = await supabase.from('prediccion_campeon').select('participante_id, equipo')
 
   duplicadosDb.value = detectarDuplicados(partidosG)
 
   const predMapPorParticipante = {}
-  for (const pr of preds || []) {
+  for (const pr of preds) {
     if (!predMapPorParticipante[pr.participante_id]) predMapPorParticipante[pr.participante_id] = {}
     predMapPorParticipante[pr.participante_id][pr.partido_id] = pr
   }
