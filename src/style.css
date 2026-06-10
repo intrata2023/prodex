@@ -1078,6 +1078,11 @@ a.home-tile:active {
   font-weight: 600;
 }
 
+.progress-fraction {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+}
+
 .progress-sort {
   display: flex;
   flex-direction: column;

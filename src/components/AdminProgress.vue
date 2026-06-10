@@ -1,6 +1,13 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
+import {
+  countCompletas,
+  progressPct,
+  gruposPendientesPorParticipante,
+  badgeGrupos,
+  badgeEliminatorias,
+} from '../lib/participantProgress.js'
 
 const filas = ref([])
 const ordenPor = ref('pendientes')
@@ -34,45 +41,6 @@ const filasOrdenadas = computed(() => {
   }
 })
 
-function prediccionCompleta(pr) {
-  return pr?.goles_local != null && pr?.goles_visitante != null
-}
-
-function prediccionEmpezada(pr) {
-  return pr && (pr.goles_local != null || pr.goles_visitante != null)
-}
-
-function gruposPendientesPorParticipante(partidosG, predsP) {
-  const predMap = Object.fromEntries(predsP.map((pr) => [pr.partido_id, pr]))
-  const porGrupo = {}
-
-  for (const partido of partidosG || []) {
-    const letra = partido.grupo || '?'
-    if (!porGrupo[letra]) porGrupo[letra] = []
-    porGrupo[letra].push(partido.id)
-  }
-
-  let empezadoGrupos = false
-  const pendientes = []
-
-  for (const letra of Object.keys(porGrupo).sort()) {
-    const ids = porGrupo[letra]
-    let completos = 0
-    let empezados = 0
-
-    for (const id of ids) {
-      const pr = predMap[id]
-      if (prediccionCompleta(pr)) completos++
-      if (prediccionEmpezada(pr)) empezados++
-    }
-
-    if (empezados > 0) empezadoGrupos = true
-    if (completos < ids.length) pendientes.push(letra)
-  }
-
-  return { empezadoGrupos, gruposPendientes: pendientes }
-}
-
 async function cargar() {
   if (!supabaseConfigured) return
 
@@ -98,31 +66,28 @@ async function cargar() {
 
   filas.value = (participantes || []).map((p) => {
     const predsP = (preds || []).filter((pr) => pr.participante_id === p.id)
-    const completos = predsP.filter(prediccionCompleta)
-    const doneG = completos.filter((pr) => idsG.has(pr.partido_id)).length
-    const doneE = completos.filter((pr) => idsE.has(pr.partido_id)).length
+    const doneG = countCompletas(predsP, idsG)
+    const doneE = countCompletas(predsP, idsE)
     const camp = (campeones || []).find((c) => c.participante_id === p.id)
     const { empezadoGrupos, gruposPendientes } = gruposPendientesPorParticipante(partidosG, predsP)
 
-    const pctG = totalG ? Math.round((doneG / totalG) * 100) : 0
-    const pctE = totalE ? Math.round((doneE / totalE) * 100) : 0
+    const pctG = progressPct(doneG, totalG)
+    const pctE = progressPct(doneE, totalE)
 
     return {
       nombre: p.nombre,
-      grupos: badge(pctG),
-      eliminatorias: badge(pctE, camp?.equipo),
+      grupos: badgeGrupos(doneG, totalG),
+      eliminatorias: badgeEliminatorias(doneE, totalE, camp),
       pctG,
       pctE,
+      doneG,
+      totalG,
+      doneE,
+      totalE,
       empezadoGrupos,
       gruposPendientes,
     }
   })
-}
-
-function badge(pct, campeon = null) {
-  if (pct === 100 && (campeon !== undefined ? campeon : true)) return 'Completo'
-  if (pct === 0) return 'Sin empezar'
-  return 'En curso'
 }
 
 onMounted(cargar)
@@ -156,11 +121,13 @@ defineExpose({ cargar })
             <span class="progress-label">Grupos</span>
             <span class="badge bg-primary">{{ f.grupos }}</span>
             <span class="progress-pct">{{ f.pctG }}%</span>
+            <span class="progress-fraction">{{ f.doneG }}/{{ f.totalG }}</span>
           </div>
           <div class="progress-chip">
             <span class="progress-label">Elim.</span>
             <span class="badge bg-warning">{{ f.eliminatorias }}</span>
             <span class="progress-pct">{{ f.pctE }}%</span>
+            <span class="progress-fraction">{{ f.doneE }}/{{ f.totalE }}</span>
           </div>
         </div>
         <div
