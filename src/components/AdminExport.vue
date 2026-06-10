@@ -13,10 +13,13 @@ async function exportar() {
     const data = await gatherExportData()
     const result = await pushToGoogleSheets(data)
     ultimo.value = new Date().toLocaleString('es-AR')
-    const filas = Object.entries(result.rows || {})
-      .map(([tab, n]) => `${tab}: ${n}`)
+    const core = ['Participantes', 'Partidos', 'Predicciones', 'Ranking']
+    const filas = core
+      .filter((tab) => result.rows?.[tab] != null)
+      .map((tab) => `${tab}: ${result.rows[tab]}`)
       .join(' · ')
-    mensaje.value = `Exportado OK. ${filas}`
+    const hojas = result.participantSheets ? ` · ${result.participantSheets} hojas por participante` : ''
+    mensaje.value = `Exportado OK. ${filas}${hojas}`
   } catch (e) {
     mensaje.value = e.message
   }
@@ -30,8 +33,8 @@ defineExpose({ exportar })
   <div>
     <h3 class="section-title">Google Sheets</h3>
     <p class="text-muted small mb-3">
-      Volca Participantes, Partidos, Predicciones, Resultados, Ranking y Config a tu
-      spreadsheet. Ideal como backup y para ver resultados en Excel.
+      Volca Participantes, Partidos, Predicciones, Resultados, Ranking y Config, más
+      una hoja por participante (<code>Pred | nombre</code>) con todos sus pronósticos.
     </p>
 
     <button class="btn btn-primary w-100 mb-2" :disabled="loading" @click="exportar">

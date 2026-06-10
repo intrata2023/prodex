@@ -10,6 +10,20 @@ const TAB_NAMES = [
   'Config',
 ]
 
+const PARTICIPANT_TAB_PREFIX = 'Pred | '
+
+const PREDICCION_HEADER = [
+  'Orden',
+  'Fase',
+  'Grupo',
+  'Ronda',
+  'Local',
+  'Visitante',
+  'Pred L',
+  'Pred V',
+  'Penales',
+]
+
 function normalizePrivateKey(key) {
   if (!key || typeof key !== 'string') return key
   let normalized = key.trim().replace(/^['"]|['"]$/g, '')
@@ -112,12 +126,85 @@ function googleSheetsErrorMessage(err, spreadsheetId, serviceAccountEmail) {
   return msg || 'Error al exportar a Google Sheets'
 }
 
+function sheetRange(tabName, cellRange) {
+  const escaped = String(tabName).replace(/'/g, "''")
+  return `'${escaped}'!${cellRange}`
+}
+
 async function withSheetsError(fn, spreadsheetId, credentials) {
   try {
     return await fn()
   } catch (err) {
     throw new Error(googleSheetsErrorMessage(err, spreadsheetId, credentials?.client_email))
   }
+}
+
+function sanitizeSheetTitle(name) {
+  return String(name || '')
+    .trim()
+    .replace(/[\[\]*?:/\\]/g, '')
+    .slice(0, 80)
+}
+
+function sheetTitleForParticipante(nombre, used) {
+  let base = sanitizeSheetTitle(nombre)
+  if (!base) base = 'Participante'
+  let title = `${PARTICIPANT_TAB_PREFIX}${base}`
+  let n = 2
+  while (used.has(title) || TAB_NAMES.includes(title)) {
+    const suffix = ` (${n})`
+    title = `${PARTICIPANT_TAB_PREFIX}${base.slice(0, Math.max(1, 80 - suffix.length))}${suffix}`
+    n++
+  }
+  used.add(title)
+  return title
+}
+
+function buildParticipantSheets(data) {
+  const { participantes, partidos, predicciones, campeones } = data
+  const predsByParticipante = {}
+  for (const pr of predicciones) {
+    if (!predsByParticipante[pr.participante_id]) predsByParticipante[pr.participante_id] = {}
+    predsByParticipante[pr.participante_id][pr.partido_id] = pr
+  }
+  const campeonByParticipante = Object.fromEntries(
+    (campeones || []).map((c) => [c.participante_id, c])
+  )
+
+  const used = new Set(TAB_NAMES)
+  const sheets = {}
+
+  for (const p of participantes) {
+    const title = sheetTitleForParticipante(p.nombre, used)
+    const myPreds = predsByParticipante[p.id] || {}
+    const c = campeonByParticipante[p.id]
+
+    sheets[title] = [
+      ['Participante', p.nombre],
+      ['Puntos', p.puntos_total ?? 0],
+      ['Campeón', c?.equipo || ''],
+      ['Finalista 1', c?.finalista_1 || ''],
+      ['Finalista 2', c?.finalista_2 || ''],
+      [],
+      PREDICCION_HEADER,
+      ...partidos.map((pt) => {
+        const pr = myPreds[pt.id]
+        return [
+          pt.orden,
+          pt.fase,
+          pt.grupo || '',
+          pt.ronda,
+          pt.equipo_local,
+          pt.equipo_visitante,
+          pr?.goles_local ?? '',
+          pr?.goles_visitante ?? '',
+          pr?.penales ? 'Sí' : pr ? 'No' : '',
+        ]
+      }),
+    ]
+  }
+
+  return sheets
 }
 
 function buildTables(data) {
@@ -128,7 +215,7 @@ function buildTables(data) {
 
   const ranking = [...participantes].sort((a, b) => b.puntos_total - a.puntos_total)
 
-  return {
+  const core = {
     Participantes: [
       ['Nombre', 'Puntos', 'Grupos', 'Elim', 'Final', 'Activo'],
       ...participantes.map((p) => [
@@ -214,16 +301,38 @@ function buildTables(data) {
       ['Monto por persona', config?.monto_por_persona ?? ''],
     ],
   }
+
+  return { ...core, ...buildParticipantSheets(data) }
 }
 
-async function ensureTabs(sheets, spreadsheetId) {
-  const meta = await sheets.spreadsheets.get({ spreadsheetId })
-  const existing = new Set((meta.data.sheets || []).map((s) => s.properties.title))
-  const requests = TAB_NAMES.filter((name) => !existing.has(name)).map((title) => ({
-    addSheet: { properties: { title } },
-  }))
+async function syncTabs(sheetsApi, spreadsheetId, allTabNames) {
+  const meta = await sheetsApi.spreadsheets.get({ spreadsheetId })
+  const existingSheets = meta.data.sheets || []
+  const existingTitles = new Set(existingSheets.map((s) => s.properties.title))
+  const desired = new Set(allTabNames)
+  const fixedTabs = new Set(TAB_NAMES)
+
+  const requests = []
+
+  for (const name of allTabNames) {
+    if (!existingTitles.has(name)) {
+      requests.push({ addSheet: { properties: { title: name } } })
+    }
+  }
+
+  for (const sheet of existingSheets) {
+    const title = sheet.properties?.title
+    const sheetId = sheet.properties?.sheetId
+    if (!title || sheetId == null) continue
+    if (fixedTabs.has(title)) continue
+    if (desired.has(title)) continue
+    if (title.startsWith(PARTICIPANT_TAB_PREFIX)) {
+      requests.push({ deleteSheet: { sheetId } })
+    }
+  }
+
   if (requests.length) {
-    await sheets.spreadsheets.batchUpdate({
+    await sheetsApi.spreadsheets.batchUpdate({
       spreadsheetId,
       requestBody: { requests },
     })
@@ -241,20 +350,25 @@ export async function exportToGoogleSheets(data, env = process.env) {
   })
   const sheets = google.sheets({ version: 'v4', auth })
   const tables = buildTables(data)
+  const allTabNames = Object.keys(tables)
 
-  await withSheetsError(() => ensureTabs(sheets, spreadsheetId), spreadsheetId, credentials)
+  await withSheetsError(
+    () => syncTabs(sheets, spreadsheetId, allTabNames),
+    spreadsheetId,
+    credentials
+  )
 
-  for (const name of TAB_NAMES) {
+  for (const name of allTabNames) {
     const values = tables[name]
     await withSheetsError(
       async () => {
         await sheets.spreadsheets.values.clear({
           spreadsheetId,
-          range: `${name}!A:Z`,
+          range: sheetRange(name, 'A:Z'),
         })
         await sheets.spreadsheets.values.update({
           spreadsheetId,
-          range: `${name}!A1`,
+          range: sheetRange(name, 'A1'),
           valueInputOption: 'RAW',
           requestBody: { values },
         })
@@ -264,11 +378,14 @@ export async function exportToGoogleSheets(data, env = process.env) {
     )
   }
 
+  const participantTabs = allTabNames.filter((n) => n.startsWith(PARTICIPANT_TAB_PREFIX))
+
   return {
     ok: true,
     spreadsheetId,
-    tabs: TAB_NAMES,
-    rows: Object.fromEntries(TAB_NAMES.map((n) => [n, tables[n].length - 1])),
+    tabs: allTabNames,
+    participantSheets: participantTabs.length,
+    rows: Object.fromEntries(allTabNames.map((n) => [n, tables[n].length - 1])),
   }
 }
 
