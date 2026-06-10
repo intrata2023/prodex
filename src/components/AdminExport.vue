@@ -47,7 +47,14 @@ defineExpose({ exportar })
         <li>Creá un Google Sheet y copiá el ID de la URL</li>
         <li>Service Account en Google Cloud + JSON key</li>
         <li>Compartí el sheet con el email del service account (Editor)</li>
-        <li>Variables: <code>GOOGLE_SHEETS_ID</code>, <code>GOOGLE_SERVICE_ACCOUNT_JSON</code></li>
+        <li>
+          Variables en Vercel: <code>GOOGLE_SHEETS_ID</code> +
+          <code>GOOGLE_CLIENT_EMAIL</code> + <code>GOOGLE_PRIVATE_KEY</code>
+          (recomendado; la clave con saltos de línea)
+        </li>
+        <li>
+          Alternativa: un solo <code>GOOGLE_SERVICE_ACCOUNT_JSON</code> (JSON en una línea o base64)
+        </li>
         <li>Opcional: <code>EXPORT_SECRET</code> y <code>VITE_EXPORT_SECRET</code></li>
       </ol>
     </div>

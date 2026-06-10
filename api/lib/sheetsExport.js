@@ -12,12 +12,28 @@ const TAB_NAMES = [
 
 function normalizePrivateKey(key) {
   if (!key || typeof key !== 'string') return key
-  let normalized = key.trim()
-  // En Vercel a veces quedan \n literales en vez de saltos de línea reales.
+  let normalized = key.trim().replace(/^['"]|['"]$/g, '')
   if (normalized.includes('\\n')) {
     normalized = normalized.replace(/\\n/g, '\n')
   }
+  if (!normalized.includes('\n') && normalized.includes('-----BEGIN')) {
+    normalized = normalized
+      .replace(/-----BEGIN PRIVATE KEY-----/, '-----BEGIN PRIVATE KEY-----\n')
+      .replace(/-----END PRIVATE KEY-----/, '\n-----END PRIVATE KEY-----')
+  }
+  if (!normalized.endsWith('\n')) normalized += '\n'
   return normalized
+}
+
+function assertValidPrivateKey(key) {
+  if (!key || typeof key !== 'string') {
+    throw new Error('Falta private_key en las credenciales de Google.')
+  }
+  if (!key.includes('-----BEGIN PRIVATE KEY-----')) {
+    throw new Error(
+      'private_key inválida. Usá la clave del archivo .json del service account (no un OAuth Client ID).'
+    )
+  }
 }
 
 function parseCredentials(raw) {
@@ -36,8 +52,28 @@ function parseCredentials(raw) {
   }
   if (credentials?.private_key) {
     credentials.private_key = normalizePrivateKey(credentials.private_key)
+    assertValidPrivateKey(credentials.private_key)
   }
   return credentials
+}
+
+function resolveCredentials(env) {
+  const email = String(env.GOOGLE_CLIENT_EMAIL || '').trim()
+  const privateKeyRaw = env.GOOGLE_PRIVATE_KEY
+
+  if (email && privateKeyRaw) {
+    const private_key = normalizePrivateKey(privateKeyRaw)
+    assertValidPrivateKey(private_key)
+    return { client_email: email, private_key }
+  }
+
+  const rawCreds = env.GOOGLE_SERVICE_ACCOUNT_JSON
+  if (!rawCreds) {
+    throw new Error(
+      'Faltan credenciales de Google en Vercel. Opción fácil: GOOGLE_CLIENT_EMAIL + GOOGLE_PRIVATE_KEY. Opción alternativa: GOOGLE_SERVICE_ACCOUNT_JSON.'
+    )
+  }
+  return parseCredentials(rawCreds)
 }
 
 function normalizeSpreadsheetId(raw) {
@@ -69,9 +105,8 @@ function googleSheetsErrorMessage(err, spreadsheetId, serviceAccountEmail) {
   if (msg.includes('DECODER') || msg.includes('unsupported') || msg.includes('PEM')) {
     return [
       'La clave privada del service account no se pudo leer.',
-      'En Vercel, volvé a pegar GOOGLE_SERVICE_ACCOUNT_JSON: el JSON completo del archivo .json de Google Cloud, en una sola línea.',
-      'Debe incluir "private_key" con -----BEGIN PRIVATE KEY----- y saltos de línea (como \\n en el JSON).',
-      'Alternativa: codificá el JSON en base64 y pegá ese valor.',
+      'En Vercel usá GOOGLE_CLIENT_EMAIL (del .json) y GOOGLE_PRIVATE_KEY (pegá la clave con saltos de línea, desde -----BEGIN PRIVATE KEY-----).',
+      'O borrá esas dos y usá GOOGLE_SERVICE_ACCOUNT_JSON: JSON completo en una línea o en base64.',
     ].join(' ')
   }
   return msg || 'Error al exportar a Google Sheets'
@@ -197,11 +232,9 @@ async function ensureTabs(sheets, spreadsheetId) {
 
 export async function exportToGoogleSheets(data, env = process.env) {
   const spreadsheetId = normalizeSpreadsheetId(env.GOOGLE_SHEETS_ID)
-  const rawCreds = env.GOOGLE_SERVICE_ACCOUNT_JSON
   if (!spreadsheetId) throw new Error('Falta GOOGLE_SHEETS_ID en Vercel')
-  if (!rawCreds) throw new Error('Falta GOOGLE_SERVICE_ACCOUNT_JSON en Vercel')
 
-  const credentials = parseCredentials(rawCreds)
+  const credentials = resolveCredentials(env)
   const auth = new google.auth.GoogleAuth({
     credentials,
     scopes: ['https://www.googleapis.com/auth/spreadsheets'],
