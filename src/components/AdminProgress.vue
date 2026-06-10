@@ -4,6 +4,45 @@ import { supabase, supabaseConfigured } from '../lib/supabase.js'
 
 const filas = ref([])
 
+function prediccionCompleta(pr) {
+  return pr?.goles_local != null && pr?.goles_visitante != null
+}
+
+function prediccionEmpezada(pr) {
+  return pr && (pr.goles_local != null || pr.goles_visitante != null)
+}
+
+function gruposPendientesPorParticipante(partidosG, predsP) {
+  const predMap = Object.fromEntries(predsP.map((pr) => [pr.partido_id, pr]))
+  const porGrupo = {}
+
+  for (const partido of partidosG || []) {
+    const letra = partido.grupo || '?'
+    if (!porGrupo[letra]) porGrupo[letra] = []
+    porGrupo[letra].push(partido.id)
+  }
+
+  let empezadoGrupos = false
+  const pendientes = []
+
+  for (const letra of Object.keys(porGrupo).sort()) {
+    const ids = porGrupo[letra]
+    let completos = 0
+    let empezados = 0
+
+    for (const id of ids) {
+      const pr = predMap[id]
+      if (prediccionCompleta(pr)) completos++
+      if (prediccionEmpezada(pr)) empezados++
+    }
+
+    if (empezados > 0) empezadoGrupos = true
+    if (completos < ids.length) pendientes.push(letra)
+  }
+
+  return { empezadoGrupos, gruposPendientes: pendientes }
+}
+
 async function cargar() {
   if (!supabaseConfigured) return
 
@@ -12,9 +51,14 @@ async function cargar() {
     .select('id, nombre')
     .eq('activo', true)
 
-  const { data: partidosG } = await supabase.from('partidos').select('id').eq('fase', 'grupos')
+  const { data: partidosG } = await supabase
+    .from('partidos')
+    .select('id, grupo')
+    .eq('fase', 'grupos')
   const { data: partidosE } = await supabase.from('partidos').select('id').neq('fase', 'grupos')
-  const { data: preds } = await supabase.from('predicciones').select('participante_id, partido_id, goles_local, goles_visitante')
+  const { data: preds } = await supabase
+    .from('predicciones')
+    .select('participante_id, partido_id, goles_local, goles_visitante')
   const { data: campeones } = await supabase.from('prediccion_campeon').select('participante_id, equipo')
 
   const totalG = partidosG?.length || 0
@@ -22,24 +66,37 @@ async function cargar() {
   const idsG = new Set((partidosG || []).map((p) => p.id))
   const idsE = new Set((partidosE || []).map((p) => p.id))
 
-  filas.value = (participantes || []).map((p) => {
-    const predsP = (preds || []).filter((pr) => pr.participante_id === p.id)
-    const completos = predsP.filter((pr) => pr.goles_local != null && pr.goles_visitante != null)
-    const doneG = completos.filter((pr) => idsG.has(pr.partido_id)).length
-    const doneE = completos.filter((pr) => idsE.has(pr.partido_id)).length
-    const camp = (campeones || []).find((c) => c.participante_id === p.id)
+  filas.value = (participantes || [])
+    .map((p) => {
+      const predsP = (preds || []).filter((pr) => pr.participante_id === p.id)
+      const completos = predsP.filter(prediccionCompleta)
+      const doneG = completos.filter((pr) => idsG.has(pr.partido_id)).length
+      const doneE = completos.filter((pr) => idsE.has(pr.partido_id)).length
+      const camp = (campeones || []).find((c) => c.participante_id === p.id)
+      const { empezadoGrupos, gruposPendientes } = gruposPendientesPorParticipante(partidosG, predsP)
 
-    const pctG = totalG ? Math.round((doneG / totalG) * 100) : 0
-    const pctE = totalE ? Math.round((doneE / totalE) * 100) : 0
+      const pctG = totalG ? Math.round((doneG / totalG) * 100) : 0
+      const pctE = totalE ? Math.round((doneE / totalE) * 100) : 0
 
-    return {
-      nombre: p.nombre,
-      grupos: badge(pctG),
-      eliminatorias: badge(pctE, camp?.equipo),
-      pctG,
-      pctE,
-    }
-  })
+      return {
+        nombre: p.nombre,
+        grupos: badge(pctG),
+        eliminatorias: badge(pctE, camp?.equipo),
+        pctG,
+        pctE,
+        empezadoGrupos,
+        gruposPendientes,
+      }
+    })
+    .sort((a, b) => {
+      const aPend = a.empezadoGrupos && a.gruposPendientes.length
+      const bPend = b.empezadoGrupos && b.gruposPendientes.length
+      if (aPend !== bPend) return bPend - aPend
+      if (a.gruposPendientes.length !== b.gruposPendientes.length) {
+        return b.gruposPendientes.length - a.gruposPendientes.length
+      }
+      return a.nombre.localeCompare(b.nombre, 'es')
+    })
 }
 
 function badge(pct, campeon = null) {
@@ -55,6 +112,9 @@ defineExpose({ cargar })
 <template>
   <div>
     <h3 class="section-title">Progreso de participantes</h3>
+    <p class="text-muted small mb-3">
+      Quienes ya empezaron grupos muestran en qué letras les falta completar todos los partidos.
+    </p>
     <div class="admin-list">
       <div v-for="f in filas" :key="f.nombre" class="admin-list-item">
         <div class="admin-list-item-top">
@@ -71,6 +131,17 @@ defineExpose({ cargar })
             <span class="badge bg-warning">{{ f.eliminatorias }}</span>
             <span class="progress-pct">{{ f.pctE }}%</span>
           </div>
+        </div>
+        <div
+          v-if="f.empezadoGrupos && f.gruposPendientes.length"
+          class="progress-grupos-pendientes"
+        >
+          <span class="progress-grupos-label">Falta completar:</span>
+          <span
+            v-for="g in f.gruposPendientes"
+            :key="g"
+            class="progress-grupo-badge"
+          >{{ g }}</span>
         </div>
       </div>
     </div>
