@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { FRASES_IDOLOS } from '../lib/frasesIdolos.js'
 
-const ROTATE_MS = 9000
+const ROTATE_MS = 2000
 const FADE_MS = 320
 
 const idx = ref(0)
