@@ -277,7 +277,7 @@ function buildPosicionesSheet(data, ctx) {
 
   return [
     ['Actualizado (UTC)', exportedAt || ''],
-    [],
+    ['PTS = total · G = puntos grupos · E = eliminatorias · F = final/campeón'],
     ['#', 'Participante', 'PTS', 'G', 'E', 'F'],
     ...ranked.map((r, i) => [
       i + 1,
