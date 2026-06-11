@@ -13,13 +13,14 @@ async function exportar() {
     const data = await gatherExportData()
     const result = await pushToGoogleSheets(data)
     ultimo.value = new Date().toLocaleString('es-AR')
-    const core = ['Participantes', 'Partidos', 'Predicciones', 'Ranking']
-    const filas = core
+    const filas = ['Predicciones', 'Participantes', 'Posiciones']
       .filter((tab) => result.rows?.[tab] != null)
       .map((tab) => `${tab}: ${result.rows[tab]}`)
       .join(' · ')
-    const hojas = result.participantSheets ? ` · ${result.participantSheets} hojas por participante` : ''
-    mensaje.value = `Exportado OK. ${filas}${hojas}`
+    const completos = result.participantesCompletos
+      ? ` · ${result.participantesCompletos} al 100%`
+      : ''
+    mensaje.value = `Exportado OK. ${filas}${completos}`
   } catch (e) {
     mensaje.value = e.message
   }
@@ -33,12 +34,15 @@ defineExpose({ exportar })
   <div>
     <h3 class="section-title">Google Sheets</h3>
     <p class="text-muted small mb-3">
-      Volca Participantes, Partidos, Predicciones, Resultados, Ranking y Config, más
-      una hoja por participante (<code>Pred | nombre</code>) con todos sus pronósticos.
+      Solo quienes completaron los 72 partidos de grupos. Tres hojas:
+      <strong>Predicciones</strong>, <strong>Participantes</strong> y
+      <strong>Posiciones</strong> (ranking en vivo según resultados reales).
+      Cada exportación actualiza las 3 hojas: si alguien nuevo completa al 100%, se agrega;
+      el ranking se recalcula al momento.
     </p>
 
     <button class="btn btn-primary w-100 mb-2" :disabled="loading" @click="exportar">
-      {{ loading ? 'Exportando…' : 'Exportar todo a Google Sheets' }}
+      {{ loading ? 'Exportando…' : 'Exportar a Google Sheets' }}
     </button>
 
     <div v-if="mensaje" class="alert alert-secondary py-2">{{ mensaje }}</div>

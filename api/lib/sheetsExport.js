@@ -1,28 +1,15 @@
 import { google } from 'googleapis'
+import {
+  indexPartidosGrupos,
+  countGruposCompletas,
+  prediccionParaFixture,
+  buildPartidoById,
+} from '../../src/lib/participantProgress.js'
+import { calcularPuntosParticipante } from '../../src/lib/scoring.js'
 
-const TAB_NAMES = [
-  'Participantes',
-  'Partidos',
-  'Predicciones',
-  'Resultados',
-  'Campeones',
-  'Ranking',
-  'Config',
-]
+const TAB_NAMES = ['Predicciones', 'Participantes', 'Posiciones']
 
-const PARTICIPANT_TAB_PREFIX = 'Pred | '
-
-const PREDICCION_HEADER = [
-  'Orden',
-  'Fase',
-  'Grupo',
-  'Ronda',
-  'Local',
-  'Visitante',
-  'Pred L',
-  'Pred V',
-  'Penales',
-]
+const LEGACY_TAB_PREFIXES = ['Pred | ']
 
 function normalizePrivateKey(key) {
   if (!key || typeof key !== 'string') return key
@@ -98,6 +85,13 @@ function normalizeSpreadsheetId(raw) {
 
 function googleSheetsErrorMessage(err, spreadsheetId, serviceAccountEmail) {
   const msg = String(err?.message || err || '')
+  if (msg.includes('Quota exceeded') || msg.includes('quota metric')) {
+    return [
+      'Google Sheets rechazó la exportación: superaste el límite de escrituras por minuto.',
+      'Esperá ~1 minuto y volvé a exportar.',
+      'Si sigue pasando, reducí exportaciones seguidas o pedí más cuota en Google Cloud Console.',
+    ].join(' ')
+  }
   if (msg.includes('Requested entity was not found')) {
     return [
       'No se encontró el Google Sheet.',
@@ -139,170 +133,143 @@ async function withSheetsError(fn, spreadsheetId, credentials) {
   }
 }
 
-function sanitizeSheetTitle(name) {
-  return String(name || '')
-    .trim()
-    .replace(/[\[\]*?:/\\]/g, '')
-    .slice(0, 80)
+function predsByParticipante(predicciones) {
+  const map = {}
+  for (const pr of predicciones || []) {
+    if (!map[pr.participante_id]) map[pr.participante_id] = []
+    map[pr.participante_id].push(pr)
+  }
+  return map
 }
 
-function sheetTitleForParticipante(nombre, used) {
-  let base = sanitizeSheetTitle(nombre)
-  if (!base) base = 'Participante'
-  let title = `${PARTICIPANT_TAB_PREFIX}${base}`
-  let n = 2
-  while (used.has(title) || TAB_NAMES.includes(title)) {
-    const suffix = ` (${n})`
-    title = `${PARTICIPANT_TAB_PREFIX}${base.slice(0, Math.max(1, 80 - suffix.length))}${suffix}`
-    n++
-  }
-  used.add(title)
-  return title
+function partidosGrupos(partidos) {
+  return (partidos || []).filter((p) => p.fase === 'grupos')
 }
 
-function buildParticipantSheets(data) {
-  const { participantes, partidos, predicciones, campeones } = data
-  const predsByParticipante = {}
-  for (const pr of predicciones) {
-    if (!predsByParticipante[pr.participante_id]) predsByParticipante[pr.participante_id] = {}
-    predsByParticipante[pr.participante_id][pr.partido_id] = pr
+function fixturesGruposEnOrden(partidosG) {
+  const { fixtures, porGrupo } = indexPartidosGrupos(partidosG)
+  return [...porGrupo.keys()]
+    .sort()
+    .flatMap((grupo) =>
+      [...porGrupo.get(grupo)]
+        .map((key) => fixtures.get(key))
+        .filter(Boolean)
+        .sort((a, b) => (a.canonical.orden ?? 0) - (b.canonical.orden ?? 0))
+    )
+}
+
+function participantesGruposCompletos(participantes, partidosG, predicciones) {
+  const byP = predsByParticipante(predicciones)
+  const { total } = countGruposCompletas(partidosG, [])
+  if (!total) return []
+
+  return [...(participantes || [])]
+    .filter((p) => {
+      const { done } = countGruposCompletas(partidosG, byP[p.id] || [])
+      return done === total
+    })
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+}
+
+function filaPrediccionGrupo(partido, pr) {
+  return [
+    partido.grupo || '',
+    partido.ronda || 'Fase de grupos',
+    partido.equipo_local,
+    partido.equipo_visitante,
+    pr?.goles_local ?? '',
+    pr?.goles_visitante ?? '',
+  ]
+}
+
+function buildExportContext(data) {
+  const { participantes, partidos, predicciones } = data
+  const partidosG = partidosGrupos(partidos)
+  const fixtures = fixturesGruposEnOrden(partidosG)
+  const partidoById = buildPartidoById(partidosG)
+  const byP = predsByParticipante(predicciones)
+  const completos = participantesGruposCompletos(participantes, partidosG, predicciones)
+
+  return { fixtures, partidoById, byP, completos }
+}
+
+function buildPrediccionesSheet(ctx) {
+  const { fixtures, partidoById, byP, completos } = ctx
+
+  const rows = [
+    ['Participante', 'Grupo', 'Ronda', 'Local', 'Visitante', 'Pred L', 'Pred V'],
+  ]
+
+  for (const p of completos) {
+    const predsP = byP[p.id] || []
+    for (const fx of fixtures) {
+      const pr = prediccionParaFixture(fx, predsP, partidoById)
+      rows.push([p.nombre, ...filaPrediccionGrupo(fx.canonical, pr)])
+    }
   }
-  const campeonByParticipante = Object.fromEntries(
-    (campeones || []).map((c) => [c.participante_id, c])
-  )
 
-  const used = new Set(TAB_NAMES)
-  const sheets = {}
+  return rows
+}
 
-  for (const p of participantes) {
-    const title = sheetTitleForParticipante(p.nombre, used)
-    const myPreds = predsByParticipante[p.id] || {}
-    const c = campeonByParticipante[p.id]
+function finalistasRealesDesdePartidos(partidos) {
+  const partidoFinal = (partidos || []).find((p) => p.fase === 'final')
+  return partidoFinal ? [partidoFinal.equipo_local, partidoFinal.equipo_visitante] : []
+}
 
-    sheets[title] = [
-      ['Participante', p.nombre],
-      ['Puntos', p.puntos_total ?? 0],
-      ['Campeón', c?.equipo || ''],
-      ['Finalista 1', c?.finalista_1 || ''],
-      ['Finalista 2', c?.finalista_2 || ''],
-      [],
-      PREDICCION_HEADER,
-      ...partidos.map((pt) => {
-        const pr = myPreds[pt.id]
-        return [
-          pt.orden,
-          pt.fase,
-          pt.grupo || '',
-          pt.ronda,
-          pt.equipo_local,
-          pt.equipo_visitante,
-          pr?.goles_local ?? '',
-          pr?.goles_visitante ?? '',
-          pr?.penales ? 'Sí' : pr ? 'No' : '',
-        ]
-      }),
-    ]
-  }
+function buildPosicionesSheet(data, ctx) {
+  const { partidos, predicciones, resultados, campeones, config, exportedAt } = data
+  const { completos } = ctx
+  const finalistasReales = finalistasRealesDesdePartidos(partidos)
+  const campeonReal = config?.campeon_real || null
 
-  return sheets
+  const resultadosConPartido = (resultados || []).map((r) => {
+    const partido = partidos.find((p) => p.id === r.partido_id)
+    return partido ? { ...r, ...partido } : r
+  })
+
+  const ranked = completos
+    .map((p) => {
+      const preds = (predicciones || []).filter((pr) => pr.participante_id === p.id)
+      const predCampeon = (campeones || []).find((c) => c.participante_id === p.id)
+      const { total, desglose } = calcularPuntosParticipante({
+        partidos,
+        predicciones: preds,
+        resultados: resultadosConPartido,
+        predCampeon,
+        campeonReal,
+        finalistasReales,
+      })
+      return { nombre: p.nombre, puntos_total: total, desglose }
+    })
+    .sort((a, b) => {
+      if (b.puntos_total !== a.puntos_total) return b.puntos_total - a.puntos_total
+      return a.nombre.localeCompare(b.nombre, 'es')
+    })
+
+  return [
+    ['Actualizado (UTC)', exportedAt || ''],
+    [],
+    ['#', 'Participante', 'PTS', 'G', 'E', 'F'],
+    ...ranked.map((r, i) => [
+      i + 1,
+      r.nombre,
+      r.puntos_total,
+      r.desglose?.grupos ?? 0,
+      r.desglose?.eliminatorias ?? 0,
+      r.desglose?.final ?? 0,
+    ]),
+  ]
 }
 
 function buildTables(data) {
-  const { participantes, partidos, predicciones, resultados, campeones, config, exportedAt } =
-    data
-  const byParticipante = Object.fromEntries(participantes.map((p) => [p.id, p.nombre]))
-  const byPartido = Object.fromEntries(partidos.map((p) => [p.id, p]))
+  const ctx = buildExportContext(data)
+  const { completos } = ctx
 
-  const ranking = [...participantes].sort((a, b) => b.puntos_total - a.puntos_total)
-
-  const core = {
-    Participantes: [
-      ['Nombre', 'Puntos', 'Grupos', 'Elim', 'Final', 'Activo'],
-      ...participantes.map((p) => [
-        p.nombre,
-        p.puntos_total,
-        p.desglose?.grupos ?? 0,
-        p.desglose?.eliminatorias ?? 0,
-        p.desglose?.final ?? 0,
-        p.activo ? 'Sí' : 'No',
-      ]),
-    ],
-    Partidos: [
-      ['Orden', 'Fase', 'Grupo', 'Ronda', 'Local', 'Visitante', 'External ID', 'Fecha'],
-      ...partidos.map((p) => [
-        p.orden,
-        p.fase,
-        p.grupo || '',
-        p.ronda,
-        p.equipo_local,
-        p.equipo_visitante,
-        p.external_id ?? '',
-        p.fecha || '',
-      ]),
-    ],
-    Predicciones: [
-      ['Participante', 'Fase', 'Grupo', 'Local', 'Visitante', 'Pred L', 'Pred V', 'Penales'],
-      ...predicciones.map((pr) => {
-        const pt = byPartido[pr.partido_id]
-        return [
-          byParticipante[pr.participante_id] || pr.participante_id,
-          pt?.fase || '',
-          pt?.grupo || '',
-          pt?.equipo_local || '',
-          pt?.equipo_visitante || '',
-          pr.goles_local ?? '',
-          pr.goles_visitante ?? '',
-          pr.penales ? 'Sí' : 'No',
-        ]
-      }),
-    ],
-    Resultados: [
-      ['Fase', 'Grupo', 'Local', 'Visitante', 'Goles L', 'Goles V', 'Penales', 'Ganador penales'],
-      ...resultados.map((r) => {
-        const pt = byPartido[r.partido_id]
-        return [
-          pt?.fase || '',
-          pt?.grupo || '',
-          pt?.equipo_local || '',
-          pt?.equipo_visitante || '',
-          r.goles_local ?? '',
-          r.goles_visitante ?? '',
-          r.definido_penales ? 'Sí' : 'No',
-          r.ganador_penales || '',
-        ]
-      }),
-    ],
-    Campeones: [
-      ['Participante', 'Campeón', 'Finalista 1', 'Finalista 2'],
-      ...(campeones || []).map((c) => [
-        byParticipante[c.participante_id] || c.participante_id,
-        c.equipo || '',
-        c.finalista_1 || '',
-        c.finalista_2 || '',
-      ]),
-    ],
-    Ranking: [
-      ['#', 'Participante', 'PTS', 'G', 'E', 'F'],
-      ...ranking.map((p, i) => [
-        i + 1,
-        p.nombre,
-        p.puntos_total,
-        p.desglose?.grupos ?? 0,
-        p.desglose?.eliminatorias ?? 0,
-        p.desglose?.final ?? 0,
-      ]),
-    ],
-    Config: [
-      ['Campo', 'Valor'],
-      ['Exportado (UTC)', exportedAt],
-      ['Grupos abiertos', config?.grupos_abiertos ? 'Sí' : 'No'],
-      ['Eliminatorias abiertas', config?.eliminatorias_abiertos ? 'Sí' : 'No'],
-      ['Campeón real', config?.campeon_real || ''],
-      ['Monto por persona', config?.monto_por_persona ?? ''],
-    ],
+  return {
+    Predicciones: buildPrediccionesSheet(ctx),
+    Participantes: [['Nombre'], ...completos.map((p) => [p.nombre])],
+    Posiciones: buildPosicionesSheet(data, ctx),
   }
-
-  return { ...core, ...buildParticipantSheets(data) }
 }
 
 async function syncTabs(sheetsApi, spreadsheetId, allTabNames) {
@@ -310,7 +277,6 @@ async function syncTabs(sheetsApi, spreadsheetId, allTabNames) {
   const existingSheets = meta.data.sheets || []
   const existingTitles = new Set(existingSheets.map((s) => s.properties.title))
   const desired = new Set(allTabNames)
-  const fixedTabs = new Set(TAB_NAMES)
 
   const requests = []
 
@@ -324,9 +290,11 @@ async function syncTabs(sheetsApi, spreadsheetId, allTabNames) {
     const title = sheet.properties?.title
     const sheetId = sheet.properties?.sheetId
     if (!title || sheetId == null) continue
-    if (fixedTabs.has(title)) continue
     if (desired.has(title)) continue
-    if (title.startsWith(PARTICIPANT_TAB_PREFIX)) {
+    const isLegacy =
+      LEGACY_TAB_PREFIXES.some((prefix) => title.startsWith(prefix)) ||
+      !TAB_NAMES.includes(title)
+    if (isLegacy) {
       requests.push({ deleteSheet: { sheetId } })
     }
   }
@@ -337,6 +305,39 @@ async function syncTabs(sheetsApi, spreadsheetId, allTabNames) {
       requestBody: { requests },
     })
   }
+}
+
+async function writeAllTabs(sheetsApi, spreadsheetId, tables, credentials) {
+  const names = Object.keys(tables)
+  if (!names.length) return
+
+  await withSheetsError(
+    () =>
+      sheetsApi.spreadsheets.values.batchClear({
+        spreadsheetId,
+        requestBody: {
+          ranges: names.map((name) => sheetRange(name, 'A:Z')),
+        },
+      }),
+    spreadsheetId,
+    credentials
+  )
+
+  await withSheetsError(
+    () =>
+      sheetsApi.spreadsheets.values.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          valueInputOption: 'RAW',
+          data: names.map((name) => ({
+            range: sheetRange(name, 'A1'),
+            values: tables[name],
+          })),
+        },
+      }),
+    spreadsheetId,
+    credentials
+  )
 }
 
 export async function exportToGoogleSheets(data, env = process.env) {
@@ -358,33 +359,17 @@ export async function exportToGoogleSheets(data, env = process.env) {
     credentials
   )
 
-  for (const name of allTabNames) {
-    const values = tables[name]
-    await withSheetsError(
-      async () => {
-        await sheets.spreadsheets.values.clear({
-          spreadsheetId,
-          range: sheetRange(name, 'A:Z'),
-        })
-        await sheets.spreadsheets.values.update({
-          spreadsheetId,
-          range: sheetRange(name, 'A1'),
-          valueInputOption: 'RAW',
-          requestBody: { values },
-        })
-      },
-      spreadsheetId,
-      credentials
-    )
-  }
+  await writeAllTabs(sheets, spreadsheetId, tables, credentials)
 
-  const participantTabs = allTabNames.filter((n) => n.startsWith(PARTICIPANT_TAB_PREFIX))
+  const ctx = buildExportContext(data)
+  const predRows = tables.Predicciones?.length > 1 ? tables.Predicciones.length - 1 : 0
 
   return {
     ok: true,
     spreadsheetId,
     tabs: allTabNames,
-    participantSheets: participantTabs.length,
+    prediccionesRows: predRows,
+    participantesCompletos: ctx.completos.length,
     rows: Object.fromEntries(allTabNames.map((n) => [n, tables[n].length - 1])),
   }
 }
