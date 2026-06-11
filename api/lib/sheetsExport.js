@@ -176,9 +176,9 @@ function filaPrediccionGrupo(partido, pr) {
     partido.grupo || '',
     partido.ronda || 'Fase de grupos',
     partido.equipo_local,
-    partido.equipo_visitante,
     pr?.goles_local ?? '',
     pr?.goles_visitante ?? '',
+    partido.equipo_visitante,
   ]
 }
 
@@ -197,7 +197,7 @@ function buildPrediccionesSheet(ctx) {
   const { fixtures, partidoById, byP, completos } = ctx
 
   const rows = [
-    ['Participante', 'Grupo', 'Ronda', 'Local', 'Visitante', 'Pred L', 'Pred V'],
+    ['Participante', 'Grupo', 'Ronda', 'Local', 'Pred L', 'Pred V', 'Visitante'],
   ]
 
   for (const p of completos) {

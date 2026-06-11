@@ -67,13 +67,15 @@ async function cargar() {
   const predMap = Object.fromEntries((preds || []).map((p) => [p.partido_id, p]))
   const fixes = reparacionesPredicciones(partidos.value, predMap)
   for (const fix of fixes) {
-    await supabase.rpc('upsert_prediccion', {
-      p_participante_id: participanteId.value,
-      p_partido_id: fix.partido_id,
-      p_goles_local: fix.goles_local,
-      p_goles_visitante: fix.goles_visitante,
-      p_penales: fix.penales ?? false,
-    })
+    if (!bloqueado.value) {
+      await supabase.rpc('upsert_prediccion', {
+        p_participante_id: participanteId.value,
+        p_partido_id: fix.partido_id,
+        p_goles_local: fix.goles_local,
+        p_goles_visitante: fix.goles_visitante,
+        p_penales: fix.penales ?? false,
+      })
+    }
     predMap[fix.partido_id] = { ...fix, participante_id: participanteId.value }
   }
   predicciones.value = mapPrediccionesACanonica(partidos.value, predMap)
@@ -100,8 +102,8 @@ async function guardar(payload) {
 
 <template>
   <AppLayout title="Fase de grupos">
-    <div v-if="bloqueado" class="alert alert-warning">
-      La carga de grupos está bloqueada por el administrador.
+    <div v-if="bloqueado" class="alert alert-info py-2">
+      La carga está cerrada. Podés ver tus predicciones, pero no editarlas.
     </div>
     <div v-if="loading" class="text-center py-5">
       <div class="spinner-border text-primary"></div>
@@ -117,7 +119,7 @@ async function guardar(payload) {
           :class="{ active: vista === 'cargar' }"
           @click="vista = 'cargar'"
         >
-          Cargar
+          {{ bloqueado ? 'Mis predicciones' : 'Cargar' }}
         </button>
         <button
           type="button"
@@ -129,7 +131,7 @@ async function guardar(payload) {
         </button>
       </div>
 
-      <p v-if="faltanGrupos" class="grupos-aviso-incompleto">
+      <p v-if="faltanGrupos && !bloqueado" class="grupos-aviso-incompleto">
         Todavía no completaste todos los grupos. Revisá los que figuran como
         <strong>Incompleto</strong>.
       </p>
@@ -166,7 +168,7 @@ async function guardar(payload) {
                   :key="p.id"
                   :partido="p"
                   :prediccion="predicciones[p.id]"
-                  :disabled="bloqueado"
+                  :readonly="bloqueado"
                   @save="guardar"
                 />
               </div>

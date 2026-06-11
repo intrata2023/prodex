@@ -8,31 +8,25 @@ WHERE lower(trim(nombre)) NOT IN (
   'vsassola',
   'mlualdi',
   'eblanco',
-  'mparera',
+  'fmarambio',
   'jgranado',
   'mcolombo',
   'amangano',
   'mpuchini',
   'vtorcetta',
   'jdipaolo',
-  'glsilva',
   'jscoufalos',
-  'gfeldman',
-  'rcoto',
   'spascualetti',
-  'jesnaola',
   'mvdelvalle',
   'fpedroso',
   'jnicastro',
   'hsuarez',
-  'paristimuno',
   'fcotler',
   'lperez',
   'rfihman',
   'cmanzanal',
   'jahin',
-  'aformosa',
-  'dbasanes'
+  'aformosa'
 );
 
 -- Verificación (debe devolver 30)

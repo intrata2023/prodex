@@ -35,24 +35,29 @@ onMounted(loadConfig)
     <p class="home-section-label">Tus predicciones</p>
 
     <div class="home-tiles">
-      <component
-        :is="gruposBloqueado ? 'div' : 'router-link'"
-        :to="gruposBloqueado ? undefined : '/grupos'"
+      <router-link
+        to="/grupos"
         class="home-tile home-tile--grupos"
-        :class="{ 'home-tile--locked': gruposBloqueado }"
+        :class="{ 'home-tile--readonly': gruposBloqueado }"
       >
         <span class="home-tile-icon" aria-hidden="true">⚽</span>
         <div class="home-tile-body">
           <div class="home-tile-top">
             <h2>Fase de grupos</h2>
             <span class="home-tile-badge" :class="gruposBloqueado ? 'is-locked' : 'is-open'">
-              {{ gruposBloqueado ? 'Bloqueada' : 'Abierta' }}
+              {{ gruposBloqueado ? 'Solo lectura' : 'Abierta' }}
             </span>
           </div>
-          <p class="home-tile-desc">Cargá los resultados de los 12 grupos.</p>
+          <p class="home-tile-desc">
+            {{
+              gruposBloqueado
+                ? 'Revisá tus predicciones de los 12 grupos.'
+                : 'Cargá los resultados de los 12 grupos.'
+            }}
+          </p>
         </div>
-        <span v-if="!gruposBloqueado" class="home-tile-arrow" aria-hidden="true">›</span>
-      </component>
+        <span class="home-tile-arrow" aria-hidden="true">›</span>
+      </router-link>
 
       <component
         :is="elimBloqueado ? 'div' : 'router-link'"
@@ -87,7 +92,7 @@ onMounted(loadConfig)
     </div>
 
     <p v-if="etapasAbiertas === 0" class="home-hint">
-      Todavía no hay etapas abiertas. El admin las habilita cuando empieza el torneo.
+      Las cargas están cerradas. Podés entrar a Grupos para ver lo que ya cargaste.
     </p>
 
     <ScoringRules class="home-rules" />

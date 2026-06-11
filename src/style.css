@@ -289,6 +289,10 @@ a.home-tile:active {
   cursor: default;
 }
 
+.home-tile--readonly {
+  opacity: 0.92;
+}
+
 .home-tile-icon {
   display: flex;
   align-items: center;
