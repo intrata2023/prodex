@@ -1,5 +1,5 @@
 /**
- * Tests manuales: node src/lib/scoring.test.js
+ * Tests manuales: npm test
  */
 import {
   puntosGrupo,
