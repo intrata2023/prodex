@@ -1,10 +1,12 @@
 <script setup>
 import { ref, watch, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useTeamCrests } from '../composables/useTeamCrests.js'
+import { aciertoPrediccion } from '../lib/scoring.js'
 
 const props = defineProps({
   partido: { type: Object, required: true },
   prediccion: { type: Object, default: null },
+  resultado: { type: Object, default: null },
   readonly: { type: Boolean, default: false },
   showPenales: { type: Boolean, default: false },
   disabled: { type: Boolean, default: false },
@@ -24,6 +26,15 @@ const crests = computed(() => {
   crestsLoaded.value
   return crestsForPartido(props.partido)
 })
+
+const acierto = computed(() =>
+  aciertoPrediccion(props.prediccion, props.resultado, props.partido)
+)
+
+const tieneResultadoReal = computed(
+  () =>
+    props.resultado?.goles_local != null && props.resultado?.goles_visitante != null
+)
 
 onMounted(load)
 
@@ -106,7 +117,15 @@ onBeforeUnmount(flushSave)
 </script>
 
 <template>
-  <div class="match-card" :class="{ 'match-card--disabled': disabled }">
+  <div
+    class="match-card"
+    :class="{
+      'match-card--disabled': disabled,
+      'match-card--exacto': acierto?.tipo === 'exacto',
+      'match-card--ganador': acierto?.tipo === 'ganador',
+      'match-card--fallo': acierto?.tipo === 'fallo',
+    }"
+  >
     <div v-if="partido.grupo" class="match-meta">Grupo {{ partido.grupo }}</div>
 
     <div class="match-row">
@@ -181,6 +200,19 @@ onBeforeUnmount(flushSave)
         />
         Pasa por penales
       </label>
+    </div>
+
+    <div v-if="tieneResultadoReal" class="match-resultado">
+      <span class="match-resultado-real">
+        Real: {{ resultado.goles_local }} – {{ resultado.goles_visitante }}
+      </span>
+      <span
+        v-if="acierto"
+        class="match-acierto-badge"
+        :class="`match-acierto-badge--${acierto.tipo}`"
+      >
+        {{ acierto.label }} · {{ acierto.pts > 0 ? `+${acierto.pts} pts` : '0 pts' }}
+      </span>
     </div>
 
     <div v-if="!readonly && status !== 'idle'" class="match-status">

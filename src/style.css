@@ -479,6 +479,60 @@ a.home-tile:active {
   opacity: 0.45;
 }
 
+.match-card--exacto {
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.35);
+}
+
+.match-card--ganador {
+  background: rgba(251, 146, 60, 0.1);
+  border-color: rgba(251, 146, 60, 0.35);
+}
+
+.match-card--fallo {
+  background: rgba(248, 113, 113, 0.1);
+  border-color: rgba(248, 113, 113, 0.35);
+}
+
+.match-resultado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding-top: 0.625rem;
+  border-top: 1px solid var(--border);
+}
+
+.match-resultado-real {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.match-acierto-badge {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+}
+
+.match-acierto-badge--exacto {
+  background: rgba(34, 197, 94, 0.18);
+  color: #86efac;
+}
+
+.match-acierto-badge--ganador {
+  background: rgba(251, 146, 60, 0.18);
+  color: #fdba74;
+}
+
+.match-acierto-badge--fallo {
+  background: rgba(248, 113, 113, 0.18);
+  color: #fca5a5;
+}
+
 .match-meta {
   font-size: 0.6875rem;
   font-weight: 600;
@@ -1431,6 +1485,14 @@ a.home-tile:active {
   --bs-accordion-body-bg: transparent;
   --bs-accordion-body-padding-x: 0;
   --bs-accordion-body-padding-y: 0.75rem;
+}
+
+.grupos-leyenda-acierto {
+  margin: 0 0 0.75rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.4;
 }
 
 .grupos-aviso-incompleto {

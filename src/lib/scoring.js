@@ -70,6 +70,33 @@ export function puntosEliminatoria(pred, real, partido) {
   return 0
 }
 
+/** null si aún no hay resultado real cargado */
+export function aciertoPrediccion(pred, real, partido) {
+  if (
+    !pred ||
+    !real ||
+    pred.goles_local == null ||
+    pred.goles_visitante == null ||
+    real.goles_local == null ||
+    real.goles_visitante == null
+  ) {
+    return null
+  }
+
+  if (partido?.fase === 'grupos') {
+    const pts = puntosGrupo(pred, real)
+    if (pts === 2) return { tipo: 'exacto', pts, label: 'Acertaste resultado exacto' }
+    if (pts === 1) return { tipo: 'ganador', pts, label: 'Acertaste resultado parcial' }
+    return { tipo: 'fallo', pts: 0, label: 'No acertaste' }
+  }
+
+  const pts = puntosEliminatoria(pred, real, partido)
+  if (pts === 3) return { tipo: 'exacto', pts, label: 'Acertaste resultado exacto y penales' }
+  if (pts === 2) return { tipo: 'exacto', pts, label: 'Acertaste resultado exacto' }
+  if (pts === 1) return { tipo: 'ganador', pts, label: 'Acertaste resultado parcial' }
+  return { tipo: 'fallo', pts: 0, label: 'No acertaste' }
+}
+
 export function puntosFinalCampeon({
   finalista_1,
   finalista_2,

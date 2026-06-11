@@ -15,16 +15,23 @@ function initial(nombre) {
 <template>
   <div v-if="rows.length === 0" class="empty-state">Sin datos todavía</div>
 
-  <div v-else class="promi-table-wrap">
+  <div v-else>
+    <p v-if="showDesglose" class="ranking-leyenda">
+      <span><strong>PTS</strong> total</span>
+      <span><strong>G</strong> grupos</span>
+      <span><strong>E</strong> eliminatorias</span>
+      <span><strong>F</strong> final/campeón</span>
+    </p>
+    <div class="promi-table-wrap">
     <table class="promi-table">
       <thead>
         <tr>
           <th class="col-pos">#</th>
           <th class="col-name">Participante</th>
           <th class="col-pts">PTS</th>
-          <th v-if="showDesglose" class="col-stat" title="Grupos">G</th>
-          <th v-if="showDesglose" class="col-stat" title="Eliminatorias">E</th>
-          <th v-if="showDesglose" class="col-stat" title="Final / Campeón">F</th>
+          <th v-if="showDesglose" class="col-stat">G</th>
+          <th v-if="showDesglose" class="col-stat">E</th>
+          <th v-if="showDesglose" class="col-stat">F</th>
           <th v-if="showPremios" class="col-premio">Premio</th>
         </tr>
       </thead>
@@ -49,5 +56,23 @@ function initial(nombre) {
         </tr>
       </tbody>
     </table>
+    </div>
   </div>
 </template>
+
+<style scoped>
+.ranking-leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem 0.875rem;
+  margin: 0 0 0.75rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.ranking-leyenda strong {
+  color: var(--accent);
+  font-weight: 700;
+}
+</style>
