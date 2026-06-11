@@ -5,11 +5,18 @@ import {
   prediccionParaFixture,
   buildPartidoById,
 } from '../../src/lib/participantProgress.js'
-import { calcularPuntosParticipante } from '../../src/lib/scoring.js'
+import { calcularPuntosParticipante, puntosGrupo } from '../../src/lib/scoring.js'
 
 const TAB_NAMES = ['Predicciones', 'Participantes', 'Posiciones']
 
 const LEGACY_TAB_PREFIXES = ['Pred | ']
+
+const PREDICCIONES_TAB = 'Predicciones'
+const PRED_PTS_COL = 7
+
+const FILL_EXACTO = { red: 0.851, green: 0.918, blue: 0.827 }
+const FILL_GANADOR = { red: 0.988, green: 0.898, blue: 0.804 }
+const FILL_PIFFIA = { red: 0.957, green: 0.8, blue: 0.8 }
 
 function normalizePrivateKey(key) {
   if (!key || typeof key !== 'string') return key
@@ -193,18 +200,40 @@ function buildExportContext(data) {
   return { fixtures, partidoById, byP, completos }
 }
 
-function buildPrediccionesSheet(ctx) {
+function resultadosByPartidoId(resultados) {
+  return Object.fromEntries((resultados || []).map((r) => [r.partido_id, r]))
+}
+
+function puntosPartidoGrupo(pred, real) {
+  if (
+    !pred ||
+    !real ||
+    pred.goles_local == null ||
+    pred.goles_visitante == null ||
+    real.goles_local == null ||
+    real.goles_visitante == null
+  ) {
+    return ''
+  }
+  return puntosGrupo(pred, real)
+}
+
+function buildPrediccionesSheet(ctx, data) {
   const { fixtures, partidoById, byP, completos } = ctx
+  const resByPartido = resultadosByPartidoId(data?.resultados)
 
   const rows = [
-    ['Participante', 'Grupo', 'Ronda', 'Local', 'Pred L', 'Pred V', 'Visitante'],
+    ['Participante', 'Grupo', 'Ronda', 'Local', 'Pred L', 'Pred V', 'Visitante', 'Pts'],
   ]
 
   for (const p of completos) {
     const predsP = byP[p.id] || []
     for (const fx of fixtures) {
       const pr = prediccionParaFixture(fx, predsP, partidoById)
-      rows.push([p.nombre, ...filaPrediccionGrupo(fx.canonical, pr)])
+      const partido = fx.canonical
+      const real = resByPartido[partido.id]
+      const pts = puntosPartidoGrupo(pr, real)
+      rows.push([p.nombre, ...filaPrediccionGrupo(partido, pr), pts])
     }
   }
 
@@ -266,10 +295,93 @@ function buildTables(data) {
   const { completos } = ctx
 
   return {
-    Predicciones: buildPrediccionesSheet(ctx),
+    Predicciones: buildPrediccionesSheet(ctx, data),
     Participantes: [['Nombre'], ...completos.map((p) => [p.nombre])],
     Posiciones: buildPosicionesSheet(data, ctx),
   }
+}
+
+async function getSheetMeta(sheetsApi, spreadsheetId, title) {
+  const meta = await sheetsApi.spreadsheets.get({
+    spreadsheetId,
+    fields: 'sheets(properties,conditionalFormats)',
+  })
+  const sheet = (meta.data.sheets || []).find((s) => s.properties?.title === title)
+  if (!sheet || sheet.properties?.sheetId == null) return null
+  return {
+    sheetId: sheet.properties.sheetId,
+    conditionalFormats: sheet.conditionalFormats || [],
+  }
+}
+
+function deleteConditionalFormatRequests(sheetId, count) {
+  const requests = []
+  for (let i = count - 1; i >= 0; i--) {
+    requests.push({ deleteConditionalFormatRule: { sheetId, index: i } })
+  }
+  return requests
+}
+
+function addAciertoFormatRule(sheetId, rowCount, ptsValue, color, index) {
+  const col = String.fromCharCode(65 + PRED_PTS_COL)
+  return {
+    addConditionalFormatRule: {
+      rule: {
+        ranges: [
+          {
+            sheetId,
+            startRowIndex: 1,
+            endRowIndex: rowCount,
+            startColumnIndex: 0,
+            endColumnIndex: PRED_PTS_COL,
+          },
+        ],
+        booleanRule: {
+          condition: {
+            type: 'CUSTOM_FORMULA',
+            values: [{ userEnteredValue: `=$${col}2=${ptsValue}` }],
+          },
+          format: { backgroundColor: color },
+        },
+      },
+      index,
+    },
+  }
+}
+
+async function applyPrediccionesFormatting(sheetsApi, spreadsheetId, rowCount, credentials) {
+  const sheet = await getSheetMeta(sheetsApi, spreadsheetId, PREDICCIONES_TAB)
+  if (!sheet || rowCount < 2) return
+
+  const { sheetId } = sheet
+  const requests = [
+    ...deleteConditionalFormatRequests(sheetId, sheet.conditionalFormats.length),
+    {
+      updateDimensionProperties: {
+        range: {
+          sheetId,
+          dimension: 'COLUMNS',
+          startIndex: PRED_PTS_COL,
+          endIndex: PRED_PTS_COL + 1,
+        },
+        properties: { hiddenByUser: true },
+        fields: 'hiddenByUser',
+      },
+    },
+    addAciertoFormatRule(sheetId, rowCount, 2, FILL_EXACTO, 0),
+    addAciertoFormatRule(sheetId, rowCount, 1, FILL_GANADOR, 1),
+    addAciertoFormatRule(sheetId, rowCount, 0, FILL_PIFFIA, 2),
+  ]
+
+  await withSheetsError(
+    () =>
+      sheetsApi.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: { requests },
+      }),
+    spreadsheetId,
+    credentials
+  )
 }
 
 async function syncTabs(sheetsApi, spreadsheetId, allTabNames) {
@@ -360,6 +472,13 @@ export async function exportToGoogleSheets(data, env = process.env) {
   )
 
   await writeAllTabs(sheets, spreadsheetId, tables, credentials)
+
+  await applyPrediccionesFormatting(
+    sheets,
+    spreadsheetId,
+    tables.Predicciones?.length || 0,
+    credentials
+  )
 
   const ctx = buildExportContext(data)
   const predRows = tables.Predicciones?.length > 1 ? tables.Predicciones.length - 1 : 0

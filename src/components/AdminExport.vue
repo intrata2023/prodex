@@ -35,10 +35,9 @@ defineExpose({ exportar })
     <h3 class="section-title">Google Sheets</h3>
     <p class="text-muted small mb-3">
       Solo quienes completaron los 72 partidos de grupos. Tres hojas:
-      <strong>Predicciones</strong>, <strong>Participantes</strong> y
-      <strong>Posiciones</strong> (ranking en vivo según resultados reales).
-      Cada exportación actualiza las 3 hojas: si alguien nuevo completa al 100%, se agrega;
-      el ranking se recalcula al momento.
+      <strong>Predicciones</strong> (verde exacto, naranja ganador/empate, rojo errado),
+      <strong>Participantes</strong> y <strong>Posiciones</strong> en vivo.
+      Cada exportación reemplaza las 3 hojas con el estado actual.
     </p>
 
     <button class="btn btn-primary w-100 mb-2" :disabled="loading" @click="exportar">
