@@ -1,51 +1,6 @@
-<script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import { FRASES_IDOLOS } from '../lib/frasesIdolos.js'
-
-const ROTATE_MS = 2000
-const FADE_MS = 320
-
-const idx = ref(0)
-const visible = ref(true)
-let timer = null
-let fadeTimer = null
-
-const frase = computed(() => FRASES_IDOLOS[idx.value])
-
-function indiceAleatorio(excluir) {
-  const total = FRASES_IDOLOS.length
-  if (total <= 1) return 0
-  let next = excluir
-  while (next === excluir) {
-    next = Math.floor(Math.random() * total)
-  }
-  return next
-}
-
-function siguiente() {
-  visible.value = false
-  clearTimeout(fadeTimer)
-  fadeTimer = setTimeout(() => {
-    idx.value = indiceAleatorio(idx.value)
-    visible.value = true
-  }, FADE_MS)
-}
-
-onMounted(() => {
-  idx.value = indiceAleatorio(-1)
-  timer = setInterval(siguiente, ROTATE_MS)
-})
-
-onBeforeUnmount(() => {
-  clearInterval(timer)
-  clearTimeout(fadeTimer)
-})
-</script>
-
 <template>
-  <aside class="home-idolo" aria-live="polite">
-    <p class="home-idolo-kicker">Frase del vestuario</p>
-    <div class="home-idolo-card" :class="{ 'is-fading': !visible }">
+  <aside class="home-idolo">
+    <div class="home-idolo-card">
       <span class="home-idolo-flag" aria-hidden="true">
         <svg viewBox="0 0 60 40" xmlns="http://www.w3.org/2000/svg" role="img">
           <title>Bandera de Argentina</title>
@@ -65,7 +20,9 @@ onBeforeUnmount(() => {
           </g>
         </svg>
       </span>
-      <blockquote class="home-idolo-frase">«{{ frase }}»</blockquote>
+      <blockquote class="home-idolo-frase">
+        «La patria también se defiende con una pelota. Vamos Argentina.»
+      </blockquote>
     </div>
   </aside>
 </template>
