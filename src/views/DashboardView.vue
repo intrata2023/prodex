@@ -1,7 +1,6 @@
 <script setup>
 import { onMounted, computed } from 'vue'
 import AppLayout from '../components/AppLayout.vue'
-import HomeIdoloQuote from '../components/HomeIdoloQuote.vue'
 import ScoringRules from '../components/ScoringRules.vue'
 import { useSession } from '../composables/useSession.js'
 import { useConfig } from '../composables/useConfig.js'
@@ -32,8 +31,6 @@ onMounted(loadConfig)
         Hola, <strong>{{ nombre }}</strong>
       </p>
     </header>
-
-    <HomeIdoloQuote />
 
     <p class="home-section-label">Tus predicciones</p>
 

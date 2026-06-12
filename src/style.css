@@ -238,45 +238,6 @@ body {
   font-weight: 600;
 }
 
-.home-idolo {
-  margin-bottom: 1.25rem;
-}
-
-.home-idolo-card {
-  position: relative;
-  padding: 0.875rem 1rem 0.75rem;
-  border-radius: var(--radius);
-  border: 1px solid rgba(116, 172, 223, 0.22);
-  background: linear-gradient(
-    135deg,
-    rgba(116, 172, 223, 0.1) 0%,
-    rgba(255, 255, 255, 0.03) 55%,
-    rgba(34, 197, 94, 0.05) 100%
-  );
-  text-align: center;
-}
-
-.home-idolo-flag {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 0.625rem;
-}
-
-.home-idolo-flag svg {
-  width: 2.5rem;
-  height: auto;
-  border-radius: 3px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
-}
-
-.home-idolo-frase {
-  margin: 0;
-  font-size: 0.875rem;
-  font-style: italic;
-  line-height: 1.45;
-  color: var(--text);
-}
-
 .home-section-label {
   margin: 0 0 0.625rem;
   padding-left: 0.125rem;
