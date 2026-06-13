@@ -1449,9 +1449,9 @@ a.home-tile:active {
 }
 
 .mis-preds-pill {
-  font-size: 0.6875rem;
+  font-size: 0.8125rem;
   font-weight: 700;
-  padding: 0.25rem 0.5rem;
+  padding: 0.3125rem 0.625rem;
   border-radius: 999px;
   border: 1px solid var(--border);
 }
@@ -1484,14 +1484,14 @@ a.home-tile:active {
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 0.25rem;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   color: var(--text-muted);
   cursor: pointer;
 }
 
 .mis-preds-tz {
   margin: 0 0 0.875rem;
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
   opacity: 0.85;
 }
@@ -1511,11 +1511,11 @@ a.home-tile:active {
   top: var(--topbar-h);
   z-index: 10;
   margin: 0;
-  padding: 0.3125rem 0.4375rem;
-  font-size: 0.625rem;
+  padding: 0.5625rem 0.75rem;
+  font-size: 0.8125rem;
   font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  text-transform: capitalize;
   color: #74acdf;
   background: rgba(8, 8, 8, 0.92);
   backdrop-filter: blur(8px);
@@ -1531,17 +1531,17 @@ a.home-tile:active {
   border-bottom: 1px solid var(--border);
 }
 
-/* Fila compacta — Mis predicciones */
+/* Filas — Mis predicciones */
 .mp-row {
   display: grid;
-  grid-template-columns: 2.375rem minmax(0, 1fr) auto minmax(0, 1fr) 1.75rem;
+  grid-template-columns: 3rem minmax(0, 1fr) auto minmax(0, 1fr) 2.25rem;
   align-items: center;
-  column-gap: 0.3125rem;
-  padding: 0.3125rem 0.4375rem;
+  column-gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
   border-top: 1px solid var(--border);
   background: var(--bg-card);
-  border-left: 2px solid transparent;
-  min-height: 2rem;
+  border-left: 3px solid transparent;
+  min-height: 3.25rem;
 }
 
 .mp-row--exacto {
@@ -1568,12 +1568,12 @@ a.home-tile:active {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.0625rem;
-  line-height: 1.1;
+  gap: 0.125rem;
+  line-height: 1.15;
 }
 
 .mp-hora {
-  font-size: 0.5625rem;
+  font-size: 0.75rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   color: #74acdf;
@@ -1581,7 +1581,7 @@ a.home-tile:active {
 }
 
 .mp-meta {
-  font-size: 0.5rem;
+  font-size: 0.625rem;
   font-weight: 800;
   letter-spacing: 0.02em;
   text-transform: uppercase;
@@ -1592,7 +1592,7 @@ a.home-tile:active {
 .mp-side {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.4375rem;
   min-width: 0;
 }
 
@@ -1605,8 +1605,8 @@ a.home-tile:active {
 }
 
 .mp-crest {
-  width: 1rem;
-  height: 1rem;
+  width: 1.375rem;
+  height: 1.375rem;
   object-fit: contain;
   flex-shrink: 0;
 }
@@ -1618,9 +1618,9 @@ a.home-tile:active {
 }
 
 .mp-team {
-  font-size: 0.625rem;
+  font-size: 0.8125rem;
   font-weight: 600;
-  line-height: 1.15;
+  line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1640,21 +1640,22 @@ a.home-tile:active {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.0625rem;
-  padding: 0 0.125rem;
+  gap: 0.1875rem;
+  padding: 0 0.25rem;
   font-variant-numeric: tabular-nums;
-  line-height: 1;
+  line-height: 1.1;
+  min-width: 3.5rem;
 }
 
 .mp-pred {
-  font-size: 0.75rem;
+  font-size: 1rem;
   font-weight: 800;
   color: var(--text);
   white-space: nowrap;
 }
 
 .mp-real {
-  font-size: 0.5rem;
+  font-size: 0.6875rem;
   font-weight: 600;
   color: var(--text-muted);
   white-space: nowrap;
@@ -1662,11 +1663,11 @@ a.home-tile:active {
 
 .mp-pts {
   justify-self: end;
-  min-width: 1.375rem;
+  min-width: 1.75rem;
   text-align: center;
-  font-size: 0.5625rem;
+  font-size: 0.75rem;
   font-weight: 800;
-  padding: 0.0625rem 0.25rem;
+  padding: 0.1875rem 0.4375rem;
   border-radius: 999px;
   line-height: 1.3;
 }
