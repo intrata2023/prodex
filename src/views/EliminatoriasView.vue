@@ -19,7 +19,6 @@ const { participanteId } = useSession()
 const { config, loadConfig } = useConfig()
 const partidos = ref([])
 const predicciones = ref({})
-const resultados = ref({})
 const equipos = ref([])
 const campeon = ref({ equipo: '', finalista_1: '', finalista_2: '' })
 const loading = ref(true)
@@ -60,12 +59,11 @@ async function cargar() {
   }
   equipos.value = [...allEquipos].sort()
 
-  const [{ data: preds }, { data: res }] = await Promise.all([
-    supabase.from('predicciones').select('*').eq('participante_id', participanteId.value),
-    supabase.from('resultados_reales').select('*'),
-  ])
+  const { data: preds } = await supabase
+    .from('predicciones')
+    .select('*')
+    .eq('participante_id', participanteId.value)
   predicciones.value = Object.fromEntries((preds || []).map((p) => [p.partido_id, p]))
-  resultados.value = Object.fromEntries((res || []).map((r) => [r.partido_id, r]))
 
   const { data: camp } = await supabase
     .from('prediccion_campeon')
@@ -138,7 +136,6 @@ function guardarCampeon() {
             :key="p.id"
             :partido="p"
             :prediccion="predicciones[p.id]"
-            :resultado="resultados[p.id]"
             :show-penales="true"
             :disabled="bloqueado"
             @save="guardar"

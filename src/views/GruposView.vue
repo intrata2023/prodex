@@ -18,7 +18,6 @@ const { participanteId } = useSession()
 const { config, loadConfig } = useConfig()
 const partidos = ref([])
 const predicciones = ref({})
-const resultados = ref({})
 const loading = ref(true)
 const vista = ref('cargar')
 
@@ -61,11 +60,10 @@ async function cargar() {
     .order('orden')
   partidos.value = pts || []
 
-  const [{ data: preds }, { data: res }] = await Promise.all([
-    supabase.from('predicciones').select('*').eq('participante_id', participanteId.value),
-    supabase.from('resultados_reales').select('*'),
-  ])
-  resultados.value = Object.fromEntries((res || []).map((r) => [r.partido_id, r]))
+  const { data: preds } = await supabase
+    .from('predicciones')
+    .select('*')
+    .eq('participante_id', participanteId.value)
   const predMap = Object.fromEntries((preds || []).map((p) => [p.partido_id, p]))
   const fixes = reparacionesPredicciones(partidos.value, predMap)
   for (const fix of fixes) {
@@ -139,10 +137,6 @@ async function guardar(payload) {
       </p>
 
       <template v-if="vista === 'cargar'">
-        <p class="grupos-leyenda-acierto">
-          Con resultado cargado: verde = acertaste resultado exacto (+2) · naranja = acertaste
-          resultado parcial (+1) · rojo = no acertaste (0)
-        </p>
         <div class="accordion" id="gruposAcc">
           <div v-for="(g, idx) in grupos" :key="g.letra" class="accordion-item">
             <h2 class="accordion-header">
@@ -174,7 +168,6 @@ async function guardar(payload) {
                   :key="p.id"
                   :partido="p"
                   :prediccion="predicciones[p.id]"
-                  :resultado="resultados[p.id]"
                   :readonly="bloqueado"
                   @save="guardar"
                 />

@@ -14,6 +14,12 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/mis-predicciones',
+    name: 'mis-predicciones',
+    component: () => import('../views/MisPrediccionesView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/grupos',
     name: 'grupos',
     component: () => import('../views/GruposView.vue'),

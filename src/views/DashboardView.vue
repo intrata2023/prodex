@@ -32,67 +32,50 @@ onMounted(loadConfig)
       </p>
     </header>
 
-    <p class="home-section-label">Tus predicciones</p>
+    <p class="home-section-label">Menú</p>
 
     <div class="home-tiles">
+      <router-link to="/mis-predicciones" class="home-tile">
+        <span class="home-tile-icon" aria-hidden="true">◎</span>
+        <span class="home-tile-label">Ver mis predicciones</span>
+        <span class="home-tile-arrow" aria-hidden="true">›</span>
+      </router-link>
+
       <router-link
         to="/grupos"
-        class="home-tile home-tile--grupos"
-        :class="{ 'home-tile--readonly': gruposBloqueado }"
+        class="home-tile"
+        :class="{ 'home-tile--muted': gruposBloqueado }"
       >
         <span class="home-tile-icon" aria-hidden="true">⚽</span>
-        <div class="home-tile-body">
-          <div class="home-tile-top">
-            <h2>Fase de grupos</h2>
-            <span class="home-tile-badge" :class="gruposBloqueado ? 'is-locked' : 'is-open'">
-              {{ gruposBloqueado ? 'Solo lectura' : 'Abierta' }}
-            </span>
-          </div>
-          <p class="home-tile-desc">
-            {{
-              gruposBloqueado
-                ? 'Revisá tus predicciones de los 12 grupos.'
-                : 'Cargá los resultados de los 12 grupos.'
-            }}
-          </p>
-        </div>
+        <span class="home-tile-label">Fase de grupos</span>
+        <span v-if="gruposBloqueado" class="home-tile-status">Solo lectura</span>
         <span class="home-tile-arrow" aria-hidden="true">›</span>
       </router-link>
 
       <component
         :is="elimBloqueado ? 'div' : 'router-link'"
         :to="elimBloqueado ? undefined : '/eliminatorias'"
-        class="home-tile home-tile--elim"
-        :class="{ 'home-tile--locked': elimBloqueado }"
+        class="home-tile"
+        :class="{ 'home-tile--muted home-tile--locked': elimBloqueado }"
       >
         <span class="home-tile-icon" aria-hidden="true">🏆</span>
-        <div class="home-tile-body">
-          <div class="home-tile-top">
-            <h2>Eliminatorias</h2>
-            <span class="home-tile-badge" :class="elimBloqueado ? 'is-locked' : 'is-open'">
-              {{ elimBloqueado ? 'Bloqueada' : 'Abierta' }}
-            </span>
-          </div>
-          <p class="home-tile-desc">Octavos, cuartos, semis y la final.</p>
-        </div>
+        <span class="home-tile-label">Eliminatorias</span>
+        <span v-if="elimBloqueado" class="home-tile-status">Bloqueada</span>
         <span v-if="!elimBloqueado" class="home-tile-arrow" aria-hidden="true">›</span>
       </component>
 
-      <router-link class="home-tile home-tile--ranking" to="/ranking">
-        <span class="home-tile-icon" aria-hidden="true">📊</span>
-        <div class="home-tile-body">
-          <div class="home-tile-top">
-            <h2>Ranking</h2>
-            <span class="home-tile-badge is-neutral">En vivo</span>
-          </div>
-          <p class="home-tile-desc">Posiciones, puntos y desglose.</p>
-        </div>
+      <router-link to="/ranking" class="home-tile">
+        <span class="home-tile-icon" aria-hidden="true">≡</span>
+        <span class="home-tile-label">Tabla</span>
         <span class="home-tile-arrow" aria-hidden="true">›</span>
       </router-link>
     </div>
 
-    <p v-if="etapasAbiertas === 0" class="home-hint">
-      Las cargas están cerradas. Podés entrar a Grupos para ver lo que ya cargaste.
+    <p class="home-hint">
+      Podés ir viendo tus predicciones a medida que se cargan los resultados.
+      <template v-if="etapasAbiertas === 0">
+        Las cargas están cerradas; en Grupos podés revisar lo que ya cargaste.
+      </template>
     </p>
 
     <ScoringRules class="home-rules" />

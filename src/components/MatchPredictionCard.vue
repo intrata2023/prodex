@@ -127,6 +127,7 @@ onBeforeUnmount(flushSave)
     }"
   >
     <div v-if="partido.grupo" class="match-meta">Grupo {{ partido.grupo }}</div>
+    <div v-else-if="partido.ronda" class="match-meta">{{ partido.ronda }}</div>
 
     <div class="match-row">
       <div class="match-side match-side--local">

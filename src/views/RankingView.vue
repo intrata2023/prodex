@@ -20,7 +20,7 @@ async function cargar() {
 </script>
 
 <template>
-  <AppLayout title="Ranking">
+  <AppLayout title="Tabla">
     <div class="panel-card">
       <RankingTable :rows="rows" show-desglose />
     </div>

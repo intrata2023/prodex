@@ -46,8 +46,8 @@ function salir() {
         Elim.
       </router-link>
       <router-link class="app-bottom-link" to="/ranking">
-        <span class="app-bottom-icon" aria-hidden="true">📊</span>
-        Ranking
+        <span class="app-bottom-icon" aria-hidden="true">≡</span>
+        Tabla
       </router-link>
     </nav>
   </div>
