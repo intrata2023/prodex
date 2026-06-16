@@ -1,6 +1,7 @@
 <script setup>
 import { onMounted, computed } from 'vue'
 import AppLayout from '../components/AppLayout.vue'
+import HomeResumenHoy from '../components/HomeResumenHoy.vue'
 import ScoringRules from '../components/ScoringRules.vue'
 import { useSession } from '../composables/useSession.js'
 import { useConfig } from '../composables/useConfig.js'
@@ -31,6 +32,8 @@ onMounted(loadConfig)
         Hola, <strong>{{ nombre }}</strong>
       </p>
     </header>
+
+    <HomeResumenHoy />
 
     <p class="home-section-label">Menú</p>
 

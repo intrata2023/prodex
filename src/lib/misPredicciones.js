@@ -34,6 +34,57 @@ export function formatFechaDiaTitulo(clave, partidoEjemplo) {
   }).format(d)
 }
 
+export function hoyClaveArgentina() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: TZ_ARGENTINA })
+}
+
+export function claveArgentinaOffset(dias) {
+  return new Date(Date.now() + dias * 86400000).toLocaleDateString('en-CA', {
+    timeZone: TZ_ARGENTINA,
+  })
+}
+
+export function ayerClaveArgentina() {
+  return claveArgentinaOffset(-1)
+}
+
+export function mananaClaveArgentina() {
+  return claveArgentinaOffset(1)
+}
+
+export function labelDiaRelativo(offset) {
+  if (offset === -1) return 'Ayer'
+  if (offset === 0) return 'Hoy'
+  if (offset === 1) return 'Mañana'
+  return null
+}
+
+export function partidosDelDia(partidos, claveDia) {
+  return partidos
+    .filter((p) => fechaClave(p) === claveDia)
+    .sort((a, b) => {
+      if (a.fecha && b.fecha) return new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
+      return (a.orden ?? 0) - (b.orden ?? 0)
+    })
+}
+
+export function partidoTieneResultado(resultado) {
+  return resultado?.goles_local != null && resultado?.goles_visitante != null
+}
+
+/** Horario de inicio ya pasó (hora Argentina vía UTC del ISO). */
+export function partidoYaEmpezo(partido) {
+  if (!partido?.fecha) return false
+  const d = new Date(partido.fecha)
+  return !Number.isNaN(d.getTime()) && d.getTime() <= Date.now()
+}
+
+/** Resultado cargado o el partido ya arrancó. */
+export function partidoYaSucedio(partido, resultado) {
+  if (partidoTieneResultado(resultado)) return true
+  return partidoYaEmpezo(partido)
+}
+
 export function partidosConPrediccion(partidos, predicciones) {
   return partidos.filter((p) => prediccionCompleta(predicciones[p.id]))
 }

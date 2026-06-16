@@ -1,0 +1,176 @@
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+import { RouterLink } from 'vue-router'
+import MisPrediccionRow from './MisPrediccionRow.vue'
+import { useSession } from '../composables/useSession.js'
+import { supabase, supabaseConfigured } from '../lib/supabase.js'
+import { mapPrediccionesACanonica } from '../lib/participantProgress.js'
+import {
+  claveArgentinaOffset,
+  formatFechaDiaTitulo,
+  labelDiaRelativo,
+  partidosConPrediccion,
+  partidosDelDia,
+  partidoTieneResultado,
+} from '../lib/misPredicciones.js'
+import { aciertoPrediccion } from '../lib/scoring.js'
+
+const { participanteId } = useSession()
+const partidos = ref([])
+const predicciones = ref({})
+const resultados = ref({})
+const loading = ref(true)
+const offsetDias = ref(0)
+
+const claveDia = computed(() => claveArgentinaOffset(offsetDias.value))
+
+const etiquetaCorta = computed(() => labelDiaRelativo(offsetDias.value))
+
+const tituloDia = computed(() =>
+  formatFechaDiaTitulo(claveDia.value, { fecha: `${claveDia.value}T12:00:00` })
+)
+
+const predichos = computed(() =>
+  partidosConPrediccion(partidos.value, predicciones.value)
+)
+
+const partidosDelDiaActivo = computed(() =>
+  partidosDelDia(predichos.value, claveDia.value)
+)
+
+const resumenDia = computed(() => {
+  let pts = 0
+  let exacto = 0
+  let parcial = 0
+  let conResultado = 0
+
+  for (const p of partidosDelDiaActivo.value) {
+    const pred = predicciones.value[p.id]
+    const real = resultados.value[p.id]
+    if (!partidoTieneResultado(real)) continue
+    const acierto = aciertoPrediccion(pred, real, p)
+    if (!acierto) continue
+    conResultado++
+    pts += acierto.pts
+    if (acierto.tipo === 'exacto') exacto++
+    else if (acierto.tipo === 'ganador') parcial++
+  }
+
+  return { pts, exacto, parcial, conResultado, total: partidosDelDiaActivo.value.length }
+})
+
+function diaAnterior() {
+  offsetDias.value -= 1
+}
+
+function diaSiguiente() {
+  offsetDias.value += 1
+}
+
+function irAHoy() {
+  offsetDias.value = 0
+}
+
+onMounted(cargar)
+
+async function cargar() {
+  loading.value = true
+  if (!supabaseConfigured) {
+    loading.value = false
+    return
+  }
+
+  const { data: pts } = await supabase.from('partidos').select('*').order('fecha').order('orden')
+  partidos.value = pts || []
+
+  const [{ data: preds }, { data: res }] = await Promise.all([
+    supabase.from('predicciones').select('*').eq('participante_id', participanteId.value),
+    supabase.from('resultados_reales').select('*'),
+  ])
+
+  const predMap = Object.fromEntries((preds || []).map((p) => [p.partido_id, p]))
+  const grupos = partidos.value.filter((p) => p.fase === 'grupos')
+  predicciones.value = {
+    ...predMap,
+    ...mapPrediccionesACanonica(grupos, predMap),
+  }
+  resultados.value = Object.fromEntries((res || []).map((r) => [r.partido_id, r]))
+  loading.value = false
+}
+</script>
+
+<template>
+  <section class="home-hoy">
+    <div class="home-hoy-head">
+      <h2 class="home-hoy-title">Mis partidos</h2>
+      <RouterLink to="/mis-predicciones" class="home-hoy-link">Ver todo</RouterLink>
+    </div>
+
+    <div class="home-hoy-nav">
+      <button
+        type="button"
+        class="home-hoy-arrow"
+        aria-label="Día anterior"
+        @click="diaAnterior"
+      >
+        ‹
+      </button>
+
+      <button type="button" class="home-hoy-dia" @click="irAHoy">
+        <span class="home-hoy-dia-label">{{ etiquetaCorta || tituloDia }}</span>
+        <span v-if="etiquetaCorta" class="home-hoy-dia-fecha">{{ tituloDia }}</span>
+        <span v-if="offsetDias !== 0" class="home-hoy-dia-hint">Tocá para volver a hoy</span>
+      </button>
+
+      <button
+        type="button"
+        class="home-hoy-arrow"
+        aria-label="Día siguiente"
+        @click="diaSiguiente"
+      >
+        ›
+      </button>
+    </div>
+
+    <div v-if="loading" class="home-hoy-loading">
+      <div class="spinner-border spinner-border-sm text-secondary" role="status" />
+    </div>
+
+    <p v-else-if="!supabaseConfigured" class="home-hoy-empty">
+      Configurá Supabase para ver el resumen.
+    </p>
+
+    <p v-else-if="partidosDelDiaActivo.length === 0" class="home-hoy-empty">
+      No tenés predicciones para este día.
+    </p>
+
+    <template v-else>
+      <div v-if="resumenDia.conResultado" class="home-hoy-stats">
+        <span>{{ resumenDia.total }} {{ resumenDia.total === 1 ? 'partido' : 'partidos' }}</span>
+        <span class="home-hoy-stat-sep">·</span>
+        <span>{{ resumenDia.pts }} pts</span>
+        <span v-if="resumenDia.exacto" class="home-hoy-stat home-hoy-stat--exacto">
+          {{ resumenDia.exacto }} exacto{{ resumenDia.exacto === 1 ? '' : 's' }}
+        </span>
+        <span v-if="resumenDia.parcial" class="home-hoy-stat home-hoy-stat--parcial">
+          {{ resumenDia.parcial }} parcial{{ resumenDia.parcial === 1 ? '' : 'es' }}
+        </span>
+      </div>
+      <div v-else class="home-hoy-stats">
+        <span>{{ resumenDia.total }} {{ resumenDia.total === 1 ? 'partido' : 'partidos' }}</span>
+        <span class="home-hoy-stat-sep">·</span>
+        <span>Sin resultados cargados</span>
+      </div>
+
+      <div class="home-hoy-lista">
+        <MisPrediccionRow
+          v-for="p in partidosDelDiaActivo"
+          :key="p.id"
+          :partido="p"
+          :prediccion="predicciones[p.id]"
+          :resultado="resultados[p.id]"
+        />
+      </div>
+    </template>
+  </section>
+</template>
