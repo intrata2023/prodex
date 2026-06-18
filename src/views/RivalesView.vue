@@ -4,6 +4,7 @@ import AppLayout from '../components/AppLayout.vue'
 import MisPrediccionRow from '../components/MisPrediccionRow.vue'
 import { useSession } from '../composables/useSession.js'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
+import { fetchAllRows } from '../lib/fetchAll.js'
 import { mapPrediccionesACanonica } from '../lib/participantProgress.js'
 import {
   claveArgentinaOffset,
@@ -11,11 +12,13 @@ import {
   labelDiaRelativo,
   partidosConPrediccion,
   partidosDelDia,
+  partidosListadoPredicciones,
   resumenPuntosDia,
 } from '../lib/misPredicciones.js'
 
 const { participanteId } = useSession()
 const partidos = ref([])
+const partidosLista = computed(() => partidosListadoPredicciones(partidos.value))
 const rivales = ref([])
 const prediccionesPorRival = ref({})
 const resultados = ref({})
@@ -39,7 +42,7 @@ function prediccionesRival(id) {
 
 function partidosDelRival(id) {
   return partidosDelDia(
-    partidosConPrediccion(partidos.value, prediccionesRival(id)),
+    partidosConPrediccion(partidosLista.value, prediccionesRival(id)),
     claveDia.value
   )
 }
@@ -84,14 +87,13 @@ async function cargar() {
     return
   }
 
-  const [{ data: pts }, { data: participantes }, { data: preds }, { data: res }] =
-    await Promise.all([
+  const [{ data: pts }, { data: participantes }, preds, { data: res }] = await Promise.all([
       supabase.from('partidos').select('*').order('fecha').order('orden'),
       supabase
         .from('participantes_public')
         .select('id, nombre, puntos_total')
         .order('puntos_total', { ascending: false }),
-      supabase.from('predicciones').select('*'),
+      fetchAllRows(supabase, 'predicciones', '*'),
       supabase.from('resultados_reales').select('*'),
     ])
 

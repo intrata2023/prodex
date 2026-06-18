@@ -11,6 +11,7 @@ import {
   labelDiaRelativo,
   partidosConPrediccion,
   partidosDelDia,
+  partidosListadoPredicciones,
   resumenPuntosDia,
 } from '../lib/misPredicciones.js'
 
@@ -30,7 +31,7 @@ const tituloDia = computed(() =>
 )
 
 const predichos = computed(() =>
-  partidosConPrediccion(partidos.value, predicciones.value)
+  partidosConPrediccion(partidosListadoPredicciones(partidos.value), predicciones.value)
 )
 
 const partidosDelDiaActivo = computed(() =>

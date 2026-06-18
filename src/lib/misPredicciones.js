@@ -1,4 +1,4 @@
-import { prediccionCompleta } from './participantProgress.js'
+import { prediccionCompleta, indexPartidosGrupos } from './participantProgress.js'
 import { aciertoPrediccion } from './scoring.js'
 
 const SIN_FECHA = 'sin-fecha'
@@ -88,6 +88,20 @@ export function partidoYaSucedio(partido, resultado) {
 
 export function partidosConPrediccion(partidos, predicciones) {
   return partidos.filter((p) => prediccionCompleta(predicciones[p.id]))
+}
+
+/** Partidos únicos para listar predicciones (grupos sin duplicados en DB). */
+export function partidosListadoPredicciones(partidos) {
+  const grupos = (partidos || []).filter((p) => p.fase === 'grupos')
+  const otros = (partidos || []).filter((p) => p.fase !== 'grupos')
+  const { fixtures } = indexPartidosGrupos(grupos)
+  const listaGrupos = [...fixtures.values()].map((fx) => fx.canonical)
+  const unidos = [...listaGrupos, ...otros]
+
+  return unidos.sort((a, b) => {
+    if (a.fecha && b.fecha) return new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
+    return (a.orden ?? 0) - (b.orden ?? 0)
+  })
 }
 
 export function resumenPuntosDia(partidosDelDia, predicciones, resultados) {

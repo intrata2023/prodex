@@ -5,7 +5,7 @@ import MisPrediccionRow from '../components/MisPrediccionRow.vue'
 import { useSession } from '../composables/useSession.js'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
 import { mapPrediccionesACanonica } from '../lib/participantProgress.js'
-import { agruparPorFecha, partidosConPrediccion } from '../lib/misPredicciones.js'
+import { agruparPorFecha, partidosConPrediccion, partidosListadoPredicciones } from '../lib/misPredicciones.js'
 import { aciertoPrediccion } from '../lib/scoring.js'
 
 const { participanteId } = useSession()
@@ -16,7 +16,7 @@ const loading = ref(true)
 const soloConResultado = ref(false)
 
 const partidosPredichos = computed(() =>
-  partidosConPrediccion(partidos.value, predicciones.value)
+  partidosConPrediccion(partidosListadoPredicciones(partidos.value), predicciones.value)
 )
 
 const bloques = computed(() => {
