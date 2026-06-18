@@ -11,9 +11,8 @@ import {
   labelDiaRelativo,
   partidosConPrediccion,
   partidosDelDia,
-  partidoTieneResultado,
+  resumenPuntosDia,
 } from '../lib/misPredicciones.js'
-import { aciertoPrediccion } from '../lib/scoring.js'
 
 const { participanteId } = useSession()
 const partidos = ref([])
@@ -38,26 +37,9 @@ const partidosDelDiaActivo = computed(() =>
   partidosDelDia(predichos.value, claveDia.value)
 )
 
-const resumenDia = computed(() => {
-  let pts = 0
-  let exacto = 0
-  let parcial = 0
-  let conResultado = 0
-
-  for (const p of partidosDelDiaActivo.value) {
-    const pred = predicciones.value[p.id]
-    const real = resultados.value[p.id]
-    if (!partidoTieneResultado(real)) continue
-    const acierto = aciertoPrediccion(pred, real, p)
-    if (!acierto) continue
-    conResultado++
-    pts += acierto.pts
-    if (acierto.tipo === 'exacto') exacto++
-    else if (acierto.tipo === 'ganador') parcial++
-  }
-
-  return { pts, exacto, parcial, conResultado, total: partidosDelDiaActivo.value.length }
-})
+const resumenDia = computed(() =>
+  resumenPuntosDia(partidosDelDiaActivo.value, predicciones.value, resultados.value)
+)
 
 function diaAnterior() {
   offsetDias.value -= 1
@@ -103,7 +85,10 @@ async function cargar() {
   <section class="home-hoy">
     <div class="home-hoy-head">
       <h2 class="home-hoy-title">Mis partidos</h2>
-      <RouterLink to="/mis-predicciones" class="home-hoy-link">Ver todo</RouterLink>
+      <div class="home-hoy-links">
+        <RouterLink to="/rivales" class="home-hoy-link">Ver predicciones de contrincantes</RouterLink>
+        <RouterLink to="/mis-predicciones" class="home-hoy-link">Ver todo</RouterLink>
+      </div>
     </div>
 
     <div class="home-hoy-nav">

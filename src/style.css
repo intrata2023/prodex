@@ -280,6 +280,14 @@ body {
   line-height: 1.3;
 }
 
+.home-hoy-links {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
 .home-hoy-link {
   flex-shrink: 0;
   font-size: 0.75rem;
@@ -411,6 +419,120 @@ body {
 
 .home-hoy-lista .mp-row:last-child {
   border-bottom: none;
+}
+
+.rivales-intro {
+  margin: -0.25rem 0 0.875rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.rivales-panel {
+  margin-bottom: 0;
+}
+
+.rivales-lista {
+  border-top: 1px solid var(--border);
+}
+
+.rivales-item {
+  border-bottom: 1px solid var(--border);
+}
+
+.rivales-item:last-child {
+  border-bottom: none;
+}
+
+.rivales-trigger {
+  display: grid;
+  grid-template-columns: 1.75rem 2rem 1fr auto 1.25rem;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.6875rem 0.75rem;
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.rivales-trigger:active,
+.rivales-item--open .rivales-trigger {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.rivales-pos {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.rivales-pos--podium {
+  color: #fde047;
+}
+
+.rivales-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: rgba(116, 172, 223, 0.15);
+  color: #74acdf;
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.rivales-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.rivales-nombre {
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rivales-dia-resumen {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rivales-pts {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.rivales-chevron {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.rivales-detalle {
+  border-top: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.rivales-detalle-stats {
+  border-bottom: 1px solid var(--border);
 }
 
 .home-tiles {

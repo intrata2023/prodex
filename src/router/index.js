@@ -20,6 +20,12 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/rivales',
+    name: 'rivales',
+    component: () => import('../views/RivalesView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/grupos',
     name: 'grupos',
     component: () => import('../views/GruposView.vue'),

@@ -1,4 +1,5 @@
 import { prediccionCompleta } from './participantProgress.js'
+import { aciertoPrediccion } from './scoring.js'
 
 const SIN_FECHA = 'sin-fecha'
 
@@ -87,6 +88,27 @@ export function partidoYaSucedio(partido, resultado) {
 
 export function partidosConPrediccion(partidos, predicciones) {
   return partidos.filter((p) => prediccionCompleta(predicciones[p.id]))
+}
+
+export function resumenPuntosDia(partidosDelDia, predicciones, resultados) {
+  let pts = 0
+  let exacto = 0
+  let parcial = 0
+  let conResultado = 0
+
+  for (const p of partidosDelDia) {
+    const pred = predicciones[p.id]
+    const real = resultados[p.id]
+    if (!partidoTieneResultado(real)) continue
+    const acierto = aciertoPrediccion(pred, real, p)
+    if (!acierto) continue
+    conResultado++
+    pts += acierto.pts
+    if (acierto.tipo === 'exacto') exacto++
+    else if (acierto.tipo === 'ganador') parcial++
+  }
+
+  return { pts, exacto, parcial, conResultado, total: partidosDelDia.length }
 }
 
 export function agruparPorFecha(partidos) {
