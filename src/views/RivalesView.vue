@@ -136,6 +136,9 @@ async function cargar() {
   <AppLayout title="Contrincantes">
     <p class="rivales-intro">
       Ordenados según la tabla. Tocá un nombre para ver cómo le fue en el día elegido.
+      <router-link to="/rivales/detalle" class="rivales-intro-link">
+        Ver predicciones detalladas
+      </router-link>
     </p>
 
     <section class="home-hoy rivales-panel">

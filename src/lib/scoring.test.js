@@ -15,10 +15,28 @@ console.assert(puntosGrupo({ goles_local: 1, goles_visitante: 1 }, { goles_local
 
 console.assert(
   puntosEliminatoria(
-    { goles_local: 1, goles_visitante: 1, penales: true },
+    {
+      goles_local: 1,
+      goles_visitante: 1,
+      penales: true,
+      ganador_penales: 'Argentina',
+    },
     { goles_local: 1, goles_visitante: 1, definido_penales: true, ganador_penales: 'Argentina' },
     partido
   ) === 3
+)
+
+console.assert(
+  puntosEliminatoria(
+    {
+      goles_local: 1,
+      goles_visitante: 1,
+      penales: true,
+      ganador_penales: 'Francia',
+    },
+    { goles_local: 1, goles_visitante: 1, definido_penales: true, ganador_penales: 'Argentina' },
+    partido
+  ) === 2
 )
 
 console.assert(

@@ -1,8 +1,10 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
-import { importWorldCupFixture } from '../lib/syncResults.js'
+import { fetchAllPartidos } from '../lib/dataLoaders.js'
+import { importWorldCupFixture, importWorldCupEliminatorias } from '../lib/syncResults.js'
 import { useAdminPin } from '../composables/useAdminPin.js'
+import AdminCrucesManual from './AdminCrucesManual.vue'
 
 const { requireAdminPin } = useAdminPin()
 const partidos = ref([])
@@ -17,6 +19,7 @@ const nuevo = ref({
 })
 const mensaje = ref('')
 const importando = ref(false)
+const importandoCuadros = ref(false)
 
 const fases = [
   { value: 'grupos', label: 'Grupos' },
@@ -29,8 +32,7 @@ const fases = [
 
 async function cargar() {
   if (!supabaseConfigured) return
-  const { data } = await supabase.from('partidos').select('*').order('orden')
-  partidos.value = data || []
+  partidos.value = await fetchAllPartidos(supabase)
 }
 
 async function crear() {
@@ -82,6 +84,31 @@ async function importarFixture() {
   importando.value = false
 }
 
+async function importarCuadros() {
+  if (
+    !confirm(
+      'Trae 16avos, octavos, cuartos, semifinal y final desde la API.\n\n' +
+        'No modifica la fase de grupos. Si el partido ya existe (mismo ID de API), ' +
+        'actualiza equipos y fechas conservando las predicciones cargadas.\n\n¿Continuar?'
+    )
+  ) {
+    return
+  }
+
+  importandoCuadros.value = true
+  mensaje.value = ''
+  try {
+    const stats = await importWorldCupEliminatorias(supabase, requireAdminPin())
+    mensaje.value =
+      `Cuadros actualizados: ${stats.total} partidos (${stats.updated} actualizados, ` +
+      `${stats.inserted} nuevos). ${stats.conEquipos} con equipos confirmados en la API.`
+    await cargar()
+  } catch (e) {
+    mensaje.value = e.message
+  }
+  importandoCuadros.value = false
+}
+
 onMounted(cargar)
 defineExpose({ cargar })
 </script>
@@ -92,15 +119,29 @@ defineExpose({ cargar })
     <div v-if="mensaje" class="alert alert-secondary py-2">{{ mensaje }}</div>
 
     <button
+      class="btn btn-outline-primary w-100 mb-2"
+      :disabled="importandoCuadros"
+      @click="importarCuadros"
+    >
+      {{ importandoCuadros ? 'Trayendo cuadros…' : 'Traer cuadros (eliminatorias)' }}
+    </button>
+    <p class="text-muted small mb-3">
+      Actualiza solo 16avos en adelante. La fase de grupos no se toca. Cuando FIFA define
+      cruces, la API trae los equipos y acá se actualizan automáticamente.
+    </p>
+
+    <AdminCrucesManual :partidos="partidos" @updated="cargar" />
+
+    <button
       class="btn btn-primary w-100 mb-3"
       :disabled="importando"
       @click="importarFixture"
     >
-      {{ importando ? 'Importando…' : 'Importar fixture Mundial 2026' }}
+      {{ importando ? 'Importando…' : 'Importar fixture completo' }}
     </button>
     <p class="text-muted small mb-3">
-      Trae los partidos reales desde football-data.org. Grupos con equipos confirmados;
-      eliminatorias se cargan con placeholder hasta que FIFA defina cruces.
+      Reemplaza todos los partidos (grupos + eliminatorias). Usalo solo la primera vez o si
+      querés resetear todo el fixture.
     </p>
 
     <form class="stack-form panel-form" @submit.prevent="crear">

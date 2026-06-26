@@ -8,6 +8,14 @@ const FASE_BY_STAGE = {
   THIRD_PLACE: 'sf',
 }
 
+export const KNOCKOUT_API_STAGES = new Set([
+  'LAST_32',
+  'LAST_16',
+  'QUARTER_FINALS',
+  'SEMI_FINALS',
+  'FINAL',
+])
+
 const RONDA_BY_STAGE = {
   GROUP_STAGE: 'Fase de grupos',
   LAST_32: '16avos de final',
@@ -73,6 +81,12 @@ export function mapApiMatchesToPartidos(matches) {
   return rows
 }
 
+/** Solo eliminatorias (16avos → final), sin fase de grupos ni tercer puesto. */
+export function mapApiMatchesToEliminatorias(matches) {
+  const knockout = (matches || []).filter((m) => KNOCKOUT_API_STAGES.has(m.stage))
+  return mapApiMatchesToPartidos(knockout)
+}
+
 function stripEscudos(partido) {
   const { escudo_local, escudo_visitante, ...rest } = partido
   return rest
@@ -100,6 +114,87 @@ export async function importWorldCupFixture(supabase, adminPin) {
     grupos: partidos.filter((p) => p.fase === 'grupos').length,
     eliminatorias: partidos.filter((p) => p.fase !== 'grupos').length,
   }
+}
+
+/**
+ * Sincroniza cuadros de eliminatorias desde la API.
+ * No toca partidos de grupos. Actualiza por external_id para conservar predicciones.
+ */
+export async function importWorldCupEliminatorias(supabase, adminPin) {
+  const matches = await fetchWorldCupMatches()
+  const partidos = mapApiMatchesToEliminatorias(matches)
+  if (!partidos.length) {
+    throw new Error('La API no devolvió partidos de eliminatorias')
+  }
+
+  const { data: maxGrupos } = await supabase
+    .from('partidos')
+    .select('orden')
+    .eq('fase', 'grupos')
+    .order('orden', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const { data: existentes } = await supabase
+    .from('partidos')
+    .select('id, external_id, orden')
+    .neq('fase', 'grupos')
+
+  const byExternalId = new Map(
+    (existentes || [])
+      .filter((p) => p.external_id != null)
+      .map((p) => [p.external_id, p])
+  )
+
+  const baseOrden = maxGrupos?.orden ?? 0
+  let nextOrden = Math.max(baseOrden, ...(existentes || []).map((p) => p.orden ?? 0), 0) + 1
+  let updated = 0
+  let inserted = 0
+
+  async function upsertRow(row) {
+    const payload = stripEscudos({
+      fase: row.fase,
+      ronda: row.ronda,
+      grupo: null,
+      equipo_local: row.equipo_local,
+      equipo_visitante: row.equipo_visitante,
+      external_id: row.external_id,
+      fecha: row.fecha,
+    })
+
+    const existente = row.external_id != null ? byExternalId.get(row.external_id) : null
+    if (existente) {
+      const { error } = await supabase.rpc('admin_update_partido', {
+        p_admin_pin: adminPin,
+        p_partido_id: existente.id,
+        p_payload: payload,
+      })
+      if (error) throw error
+      updated++
+      return
+    }
+
+    const { error } = await supabase.rpc('admin_insert_partido', {
+      p_admin_pin: adminPin,
+      p_payload: { ...payload, orden: nextOrden++ },
+    })
+    if (error) throw error
+    inserted++
+  }
+
+  for (const row of partidos) {
+    await upsertRow(row)
+  }
+
+  const conEquipos = partidos.filter(
+    (p) =>
+      p.equipo_local &&
+      p.equipo_visitante &&
+      !p.equipo_local.includes('· Local') &&
+      !p.equipo_visitante.includes('· Visitante')
+  ).length
+
+  return { total: partidos.length, updated, inserted, conEquipos }
 }
 
 export async function fetchWorldCupMatches() {

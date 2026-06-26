@@ -2,12 +2,14 @@
 import { computed, onMounted } from 'vue'
 import { useTeamCrests } from '../composables/useTeamCrests.js'
 import { aciertoPrediccion } from '../lib/scoring.js'
-import { formatHoraArgentina } from '../lib/misPredicciones.js'
+import { formatHoraArgentina, formatoPrediccionDisplay, formatoResultadoDisplay } from '../lib/misPredicciones.js'
+import PartidoRivalesLink from './PartidoRivalesLink.vue'
 
 const props = defineProps({
   partido: { type: Object, required: true },
   prediccion: { type: Object, default: null },
   resultado: { type: Object, default: null },
+  showContrincantesLink: { type: Boolean, default: false },
 })
 
 const { load, crestsForPartido, crestsLoaded } = useTeamCrests()
@@ -41,11 +43,18 @@ const estado = computed(() => acierto.value?.tipo ?? 'pendiente')
 
 const hora = computed(() => formatHoraArgentina(props.partido.fecha))
 
+const predDisplay = computed(() => formatoPrediccionDisplay(props.prediccion, props.partido))
+
+const realDisplay = computed(() => formatoResultadoDisplay(props.resultado, props.partido))
+
+const esEliminatoria = computed(() => props.partido.fase !== 'grupos')
+
 onMounted(load)
 </script>
 
 <template>
-  <div class="mp-row" :class="`mp-row--${estado}`">
+  <div class="mp-wrap">
+    <div class="mp-row" :class="`mp-row--${estado}`">
     <div class="mp-slot">
       <span class="mp-hora" :title="hora ? 'Hora Argentina (ART)' : undefined">
         {{ hora || '—' }}
@@ -68,11 +77,19 @@ onMounted(load)
     </div>
 
     <div class="mp-center">
-      <span class="mp-pred">
-        {{ prediccion.goles_local }}–{{ prediccion.goles_visitante }}
+      <span class="mp-pred">{{ predDisplay?.score ?? `${prediccion.goles_local}–${prediccion.goles_visitante}` }}</span>
+      <span
+        v-if="esEliminatoria && predDisplay?.penales"
+        class="mp-pen"
+        :title="`Pasa por penales: ${predDisplay.penales}`"
+      >
+        P {{ predDisplay.penales }}
       </span>
       <span v-if="tieneReal" class="mp-real">
-        R {{ resultado.goles_local }}–{{ resultado.goles_visitante }}
+        R {{ realDisplay?.score ?? `${resultado.goles_local}–${resultado.goles_visitante}` }}
+        <template v-if="realDisplay?.penales">
+          · P {{ realDisplay.penales }}
+        </template>
       </span>
     </div>
 
@@ -92,5 +109,11 @@ onMounted(load)
       {{ acierto.pts > 0 ? `+${acierto.pts}` : '0' }}
     </span>
     <span v-else class="mp-pts mp-pts--pendiente">—</span>
+    </div>
+    <PartidoRivalesLink
+      v-if="showContrincantesLink"
+      :partido-id="partido.id"
+      class="mp-contrincantes-link"
+    />
   </div>
 </template>

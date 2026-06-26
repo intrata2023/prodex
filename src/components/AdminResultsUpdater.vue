@@ -10,6 +10,7 @@ import {
 import { fetchWorldCupMatches, mapApiMatchToResult, matchPartidoLocal } from '../lib/syncResults.js'
 import { calcularTodosLosPuntos } from '../lib/scoring.js'
 import { useAdminPin } from '../composables/useAdminPin.js'
+import PenalesGanadorPicker from './PenalesGanadorPicker.vue'
 
 const { requireAdminPin } = useAdminPin()
 const partidos = ref([])
@@ -32,17 +33,44 @@ async function guardarResultado(partidoId, field, value) {
   const updated = { ...actual, [field]: value }
   if (field === 'goles_local' || field === 'goles_visitante') {
     updated[field] = value === '' ? null : Number(value)
+    const gl = updated.goles_local
+    const gv = updated.goles_visitante
+    if (gl == null || gv == null || gl !== gv) {
+      updated.definido_penales = false
+      updated.ganador_penales = null
+    }
   }
   resultados.value[partidoId] = updated
+  await persistirResultado(updated)
+}
 
+async function setGanadorPenales(partidoId, equipo) {
+  const actual = resultados.value[partidoId] || { partido_id: partidoId }
+  const updated = {
+    ...actual,
+    definido_penales: true,
+    ganador_penales: equipo,
+  }
+  resultados.value[partidoId] = updated
+  await persistirResultado(updated)
+}
+
+async function persistirResultado(updated) {
   await supabase.rpc('admin_upsert_resultado', {
     p_admin_pin: requireAdminPin(),
-    p_partido_id: partidoId,
+    p_partido_id: updated.partido_id,
     p_goles_local: updated.goles_local,
     p_goles_visitante: updated.goles_visitante,
     p_definido_penales: updated.definido_penales ?? false,
     p_ganador_penales: updated.ganador_penales || null,
   })
+}
+
+function esEmpate(partidoId) {
+  const r = resultados.value[partidoId]
+  return (
+    r?.goles_local != null && r?.goles_visitante != null && r.goles_local === r.goles_visitante
+  )
 }
 
 async function syncApi() {
@@ -183,14 +211,12 @@ defineExpose({ cargar, recalcular })
             aria-label="Goles visitante"
           />
         </div>
-        <label class="match-penales-label mt-2">
-          <input
-            type="checkbox"
-            :checked="resultados[p.id]?.definido_penales"
-            @change="(e) => guardarResultado(p.id, 'definido_penales', e.target.checked)"
-          />
-          Definido por penales
-        </label>
+        <PenalesGanadorPicker
+          v-if="p.fase !== 'grupos' && esEmpate(p.id)"
+          :model-value="resultados[p.id]?.ganador_penales || ''"
+          :partido="p"
+          @update:model-value="(equipo) => setGanadorPenales(p.id, equipo)"
+        />
       </div>
     </div>
   </div>

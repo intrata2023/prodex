@@ -125,6 +125,31 @@ export function resumenPuntosDia(partidosDelDia, predicciones, resultados) {
   return { pts, exacto, parcial, conResultado, total: partidosDelDia.length }
 }
 
+/** Resumen global de aciertos (exactos, parciales, errados, pendientes). */
+export function resumenPredicciones(partidos, predicciones, resultados) {
+  let exacto = 0
+  let parcial = 0
+  let fallo = 0
+  let pendiente = 0
+  let pts = 0
+
+  for (const p of partidos) {
+    const pred = predicciones[p.id]
+    const real = resultados[p.id]
+    const acierto = aciertoPrediccion(pred, real, p)
+    if (!acierto) {
+      pendiente++
+      continue
+    }
+    pts += acierto.pts
+    if (acierto.tipo === 'exacto') exacto++
+    else if (acierto.tipo === 'ganador') parcial++
+    else fallo++
+  }
+
+  return { exacto, parcial, fallo, pendiente, total: partidos.length, pts }
+}
+
 export function agruparPorFecha(partidos) {
   const map = new Map()
 
@@ -154,4 +179,52 @@ export function agruparPorFecha(partidos) {
   })
 
   return bloques
+}
+
+/** Texto de predicción con penales en eliminatorias. */
+export function formatoPrediccionDisplay(pred, partido) {
+  if (!pred || pred.goles_local == null || pred.goles_visitante == null) return null
+  const score = `${pred.goles_local}–${pred.goles_visitante}`
+  if (partido?.fase === 'grupos') return { score, penales: null }
+  return {
+    score,
+    penales: pred.penales && pred.ganador_penales ? pred.ganador_penales : null,
+  }
+}
+
+/** Resultado real con penales si aplica. */
+export function formatoResultadoDisplay(resultado, partido) {
+  if (!resultado || resultado.goles_local == null || resultado.goles_visitante == null) return null
+  const score = `${resultado.goles_local}–${resultado.goles_visitante}`
+  if (partido?.fase === 'grupos') return { score, penales: null }
+  return {
+    score,
+    penales:
+      resultado.definido_penales && resultado.ganador_penales
+        ? resultado.ganador_penales
+        : null,
+  }
+}
+
+/** IDs de partidos duplicados del mismo cruce (fase grupos). */
+export function idsPartidoRelacionados(partidos, partidoId) {
+  const target = (partidos || []).find((p) => p.id === partidoId)
+  if (!target) return []
+  if (target.fase !== 'grupos') return [partidoId]
+
+  const { fixtures } = indexPartidosGrupos(partidos.filter((p) => p.fase === 'grupos'))
+  for (const fx of fixtures.values()) {
+    const ids = fx.partidos.map((p) => p.id)
+    if (ids.includes(partidoId) || fx.canonical.id === partidoId) return ids
+  }
+  return [partidoId]
+}
+
+/** Predicción completa de un participante para un cruce (incluye alias de grupos). */
+export function prediccionEnPartido(listaPreds, idsRelacionados) {
+  for (const id of idsRelacionados) {
+    const p = (listaPreds || []).find((x) => x.partido_id === id)
+    if (prediccionCompleta(p)) return p
+  }
+  return null
 }

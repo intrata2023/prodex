@@ -101,6 +101,9 @@ async function cargar() {
       <h2 class="home-hoy-title">Mis partidos</h2>
       <div class="home-hoy-links">
         <RouterLink to="/rivales" class="home-hoy-link">Ver predicciones de contrincantes</RouterLink>
+        <RouterLink to="/rivales/detalle" class="home-hoy-link">
+          Ver predicciones detalladas
+        </RouterLink>
         <RouterLink to="/mis-predicciones" class="home-hoy-link">Ver todo</RouterLink>
       </div>
     </div>
@@ -173,6 +176,7 @@ async function cargar() {
           :partido="p"
           :prediccion="predicciones[p.id]"
           :resultado="resultados[p.id]"
+          show-contrincantes-link
         />
       </div>
     </template>

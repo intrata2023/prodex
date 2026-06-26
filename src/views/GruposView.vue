@@ -74,6 +74,7 @@ async function cargar() {
         p_goles_local: fix.goles_local,
         p_goles_visitante: fix.goles_visitante,
         p_penales: fix.penales ?? false,
+        p_ganador_penales: fix.ganador_penales ?? null,
       })
     }
     predMap[fix.partido_id] = { ...fix, participante_id: participanteId.value }
@@ -91,6 +92,7 @@ async function guardar(payload) {
     p_goles_local: payload.goles_local,
     p_goles_visitante: payload.goles_visitante,
     p_penales: false,
+    p_ganador_penales: null,
   })
   predicciones.value[partidoId] = {
     ...predicciones.value[partidoId],

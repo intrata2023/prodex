@@ -35,11 +35,12 @@ function equipoQuePasa(data, partido, esPrediccion) {
   if (gl > gv) return partido.equipo_local
   if (gv > gl) return partido.equipo_visitante
   if (gl === gv) {
-    const pen = esPrediccion ? data.penales : data.definido_penales
-    if (pen) {
-      if (esPrediccion) return partido.equipo_local
-      return data.ganador_penales || partido.equipo_local
+    if (esPrediccion) {
+      if (data.penales && data.ganador_penales) return data.ganador_penales
+      return null
     }
+    if (data.definido_penales && data.ganador_penales) return data.ganador_penales
+    return null
   }
   return null
 }
@@ -59,7 +60,14 @@ export function puntosEliminatoria(pred, real, partido) {
   const empateReal = real.goles_local === real.goles_visitante
   const empatePred = pred.goles_local === pred.goles_visitante
   const penalesOk =
-    real.definido_penales && pred.penales && empateReal && empatePred && exacto
+    empateReal &&
+    empatePred &&
+    exacto &&
+    real.definido_penales &&
+    pred.penales &&
+    pred.ganador_penales &&
+    real.ganador_penales &&
+    pred.ganador_penales === real.ganador_penales
 
   if (exacto && penalesOk) return 3
   if (exacto) return 2

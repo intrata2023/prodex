@@ -13,7 +13,7 @@
       <section class="rules-section">
         <h3>Eliminatorias</h3>
         <ul>
-          <li><strong>3 pts</strong> — resultado exacto y marcás penales</li>
+          <li><strong>3 pts</strong> — resultado exacto y acertás quién pasa por penales (P)</li>
           <li><strong>2 pts</strong> — resultado exacto</li>
           <li><strong>1 pt</strong> — acertás quién pasa de ronda</li>
           <li><strong>0 pts</strong> — no acertás</li>
@@ -21,6 +21,7 @@
       </section>
       <section class="rules-section">
         <h3>Finalistas y campeón</h3>
+        <p class="rules-note">Solo suma una de estas opciones:</p>
         <ul>
           <li><strong>12 pts</strong> — los 2 finalistas + campeón</li>
           <li><strong>8 pts</strong> — solo campeón</li>
@@ -88,6 +89,12 @@
   font-size: 0.875rem;
   color: var(--text-muted);
   line-height: 1.6;
+}
+
+.rules-note {
+  margin: 0 0 0.375rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
 }
 
 .rules-section li + li {

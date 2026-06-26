@@ -2,6 +2,7 @@
 import { ref, watch, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useTeamCrests } from '../composables/useTeamCrests.js'
 import { aciertoPrediccion } from '../lib/scoring.js'
+import PenalesGanadorPicker from './PenalesGanadorPicker.vue'
 
 const props = defineProps({
   partido: { type: Object, required: true },
@@ -10,6 +11,7 @@ const props = defineProps({
   readonly: { type: Boolean, default: false },
   showPenales: { type: Boolean, default: false },
   disabled: { type: Boolean, default: false },
+  lockMessage: { type: String, default: '' },
 })
 
 const emit = defineEmits(['save'])
@@ -17,7 +19,7 @@ const { load, crestsForPartido, crestsLoaded } = useTeamCrests()
 
 const golesLocal = ref('')
 const golesVisitante = ref('')
-const penales = ref(false)
+const ganadorPenales = ref('')
 const status = ref('idle')
 let debounceTimer = null
 let skipSave = true
@@ -34,6 +36,16 @@ const acierto = computed(() =>
 const tieneResultadoReal = computed(
   () =>
     props.resultado?.goles_local != null && props.resultado?.goles_visitante != null
+)
+
+const esEmpate = computed(() => {
+  const gl = parseGoles(golesLocal.value)
+  const gv = parseGoles(golesVisitante.value)
+  return gl != null && gv != null && gl === gv
+})
+
+const faltaGanadorPenales = computed(
+  () => props.showPenales && esEmpate.value && !ganadorPenales.value && !props.readonly
 )
 
 onMounted(load)
@@ -60,11 +72,11 @@ async function syncFromPred() {
   if (props.prediccion) {
     golesLocal.value = formatGoles(props.prediccion.goles_local)
     golesVisitante.value = formatGoles(props.prediccion.goles_visitante)
-    penales.value = props.prediccion.penales ?? false
+    ganadorPenales.value = props.prediccion.ganador_penales || ''
   } else {
     golesLocal.value = ''
     golesVisitante.value = ''
-    penales.value = false
+    ganadorPenales.value = ''
   }
   await nextTick()
   skipSave = false
@@ -73,12 +85,22 @@ async function syncFromPred() {
 syncFromPred()
 watch(() => props.prediccion, syncFromPred, { deep: true })
 
+watch(esEmpate, (empate) => {
+  if (!empate && ganadorPenales.value) {
+    ganadorPenales.value = ''
+  }
+})
+
 function buildPayload() {
+  const gl = parseGoles(golesLocal.value)
+  const gv = parseGoles(golesVisitante.value)
+  const empate = gl != null && gv != null && gl === gv
   return {
     partido_id: props.partido.id,
-    goles_local: parseGoles(golesLocal.value),
-    goles_visitante: parseGoles(golesVisitante.value),
-    penales: penales.value,
+    goles_local: gl,
+    goles_visitante: gv,
+    penales: empate && Boolean(ganadorPenales.value),
+    ganador_penales: empate ? ganadorPenales.value || null : null,
   }
 }
 
@@ -112,7 +134,7 @@ function scheduleSave() {
   debounceTimer = setTimeout(flushSave, 400)
 }
 
-watch([golesLocal, golesVisitante, penales], scheduleSave)
+watch([golesLocal, golesVisitante, ganadorPenales], scheduleSave)
 onBeforeUnmount(flushSave)
 </script>
 
@@ -128,6 +150,8 @@ onBeforeUnmount(flushSave)
   >
     <div v-if="partido.grupo" class="match-meta">Grupo {{ partido.grupo }}</div>
     <div v-else-if="partido.ronda" class="match-meta">{{ partido.ronda }}</div>
+
+    <p v-if="lockMessage" class="match-lock-msg">{{ lockMessage }}</p>
 
     <div class="match-row">
       <div class="match-side match-side--local">
@@ -191,21 +215,24 @@ onBeforeUnmount(flushSave)
       </div>
     </div>
 
-    <div v-if="showPenales" class="match-penales">
-      <label class="match-penales-label">
-        <input
-          class="form-check-input"
-          type="checkbox"
-          v-model="penales"
-          :disabled="readonly || disabled"
-        />
-        Pasa por penales
-      </label>
-    </div>
+    <PenalesGanadorPicker
+      v-if="showPenales && esEmpate"
+      v-model="ganadorPenales"
+      :partido="partido"
+      :crests="crests"
+      :disabled="readonly || disabled"
+    />
+
+    <p v-if="faltaGanadorPenales" class="match-penales-hint">
+      Elegí quién pasa por penales para completar la predicción.
+    </p>
 
     <div v-if="tieneResultadoReal" class="match-resultado">
       <span class="match-resultado-real">
         Real: {{ resultado.goles_local }} – {{ resultado.goles_visitante }}
+        <template v-if="resultado.definido_penales && resultado.ganador_penales">
+          · P: {{ resultado.ganador_penales }}
+        </template>
       </span>
       <span
         v-if="acierto"

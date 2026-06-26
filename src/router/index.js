@@ -26,6 +26,24 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/rivales/detalle',
+    name: 'rivales-detalle',
+    component: () => import('../views/RivalesDetalleIndexView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/rivales/detalle/:id',
+    name: 'rival-detalle',
+    component: () => import('../views/RivalDetalleView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/partido/:id/contrincantes',
+    name: 'partido-contrincantes',
+    component: () => import('../views/PartidoContrincantesView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/grupos',
     name: 'grupos',
     component: () => import('../views/GruposView.vue'),
