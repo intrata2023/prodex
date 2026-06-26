@@ -1,9 +1,11 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import MisPrediccionRow from './MisPrediccionRow.vue'
 import { useSession } from '../composables/useSession.js'
+import { useConfig } from '../composables/useConfig.js'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
+import { mostrarPrediccionesContrincantes } from '../lib/eliminatorias.js'
 import { mapPrediccionesACanonica } from '../lib/participantProgress.js'
 import {
   fetchAllPartidos,
@@ -22,12 +24,15 @@ import {
 } from '../lib/misPredicciones.js'
 
 const { participanteId } = useSession()
+const { config, loadConfig } = useConfig()
 const partidos = ref([])
 const predicciones = ref({})
 const resultados = ref({})
 const loading = ref(true)
 const error = ref('')
 const offsetDias = ref(0)
+const ahora = ref(Date.now())
+let relojTimer = null
 
 const claveDia = computed(() => claveArgentinaOffset(offsetDias.value))
 
@@ -61,7 +66,24 @@ function irAHoy() {
   offsetDias.value = 0
 }
 
-onMounted(cargar)
+function linkContrincantes(partido) {
+  return mostrarPrediccionesContrincantes(partido, {
+    eliminatoriasAbiertos: config.value.eliminatorias_abiertos,
+    ahora: ahora.value,
+  })
+}
+
+onMounted(async () => {
+  await loadConfig()
+  cargar()
+  relojTimer = setInterval(() => {
+    ahora.value = Date.now()
+  }, 30_000)
+})
+
+onUnmounted(() => {
+  clearInterval(relojTimer)
+})
 
 async function cargar() {
   loading.value = true
@@ -182,7 +204,7 @@ async function cargar() {
           :partido="p"
           :prediccion="predicciones[p.id]"
           :resultado="resultados[p.id]"
-          show-contrincantes-link
+          :show-contrincantes-link="linkContrincantes(p)"
         />
       </div>
     </template>

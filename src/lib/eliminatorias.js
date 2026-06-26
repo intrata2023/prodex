@@ -74,6 +74,45 @@ export function partidoEdicionCerrada(partido, ahora = Date.now()) {
   return ahora >= inicio - MS_UNA_HORA
 }
 
+/** ISO del cierre de carga (1 h antes del partido). */
+export function cierreCargaPartidoIso(partido) {
+  const inicio = inicioPartidoMs(partido)
+  if (inicio == null) return null
+  return new Date(inicio - MS_UNA_HORA).toISOString()
+}
+
+/**
+ * Mostrar predicciones de todos para un partido.
+ * Grupos: siempre. Eliminatorias: solo cuando la carga de ese cruce está cerrada.
+ */
+export function mostrarPrediccionesContrincantes(
+  partido,
+  { eliminatoriasAbiertos = true, ahora = Date.now() } = {}
+) {
+  if (!partido) return false
+  if (partido.fase === 'grupos') return true
+  if (!cruceEliminatoriaCompleto(partido)) return false
+
+  return !eliminatoriasAbiertos || partidoEdicionCerrada(partido, ahora)
+}
+
+/** Texto cuando la predicción de un rival aún no se puede ver; null si es visible. */
+export function mensajePrediccionContrincante(
+  partido,
+  { eliminatoriasAbiertos = true, ahora = Date.now() } = {}
+) {
+  if (!partido || partido.fase === 'grupos') return null
+  if (mostrarPrediccionesContrincantes(partido, { eliminatoriasAbiertos, ahora })) {
+    return null
+  }
+  if (!cruceEliminatoriaCompleto(partido)) {
+    return 'Disponible cuando estén los dos equipos'
+  }
+  const cierre = formatCierreRelativo(cierreCargaPartidoIso(partido))
+  if (cierre) return `Disponible desde ${cierre} ART`
+  return 'Disponible cuando cierre la carga (1 h antes del partido)'
+}
+
 export function primerInicioEliminatorias(partidos) {
   let min = null
   for (const p of partidos || []) {

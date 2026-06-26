@@ -15,6 +15,7 @@ import {
   cuadroR32Completo,
   equiposMitadCuadro,
   formatCierreRelativo,
+  mostrarPrediccionesContrincantes,
   partidoEdicionCerrada,
   primerInicioEliminatorias,
 } from '../lib/eliminatorias.js'
@@ -102,6 +103,13 @@ function partidoBloqueado(partido) {
     !cruceEliminatoriaCompleto(partido) ||
     partidoEdicionCerrada(partido, ahora.value)
   )
+}
+
+function linkContrincantes(partido) {
+  return mostrarPrediccionesContrincantes(partido, {
+    eliminatoriasAbiertos: config.value.eliminatorias_abiertos,
+    ahora: ahora.value,
+  })
 }
 
 function mensajeCierrePartido(partido) {
@@ -195,7 +203,7 @@ function guardarCampeon() {
               :lock-message="mensajeCierrePartido(p)"
               @save="guardar"
             />
-            <PartidoRivalesLink v-if="cruceEliminatoriaCompleto(p)" :partido-id="p.id" />
+            <PartidoRivalesLink v-if="linkContrincantes(p)" :partido-id="p.id" />
           </div>
         </div>
 

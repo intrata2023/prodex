@@ -10,6 +10,7 @@ const props = defineProps({
   prediccion: { type: Object, default: null },
   resultado: { type: Object, default: null },
   showContrincantesLink: { type: Boolean, default: false },
+  mensajePrediccionOculta: { type: String, default: '' },
 })
 
 const { load, crestsForPartido, crestsLoaded } = useTeamCrests()
@@ -49,6 +50,10 @@ const realDisplay = computed(() => formatoResultadoDisplay(props.resultado, prop
 
 const esEliminatoria = computed(() => props.partido.fase !== 'grupos')
 
+const prediccionOculta = computed(
+  () => Boolean(props.mensajePrediccionOculta && props.prediccion)
+)
+
 onMounted(load)
 </script>
 
@@ -77,20 +82,23 @@ onMounted(load)
     </div>
 
     <div class="mp-center">
-      <span class="mp-pred">{{ predDisplay?.score ?? `${prediccion.goles_local}–${prediccion.goles_visitante}` }}</span>
-      <span
-        v-if="esEliminatoria && predDisplay?.penales"
-        class="mp-pen"
-        :title="`Pasa por penales: ${predDisplay.penales}`"
-      >
-        P {{ predDisplay.penales }}
-      </span>
-      <span v-if="tieneReal" class="mp-real">
-        R {{ realDisplay?.score ?? `${resultado.goles_local}–${resultado.goles_visitante}` }}
-        <template v-if="realDisplay?.penales">
-          · P {{ realDisplay.penales }}
-        </template>
-      </span>
+      <span v-if="prediccionOculta" class="mp-pred-oculta">{{ mensajePrediccionOculta }}</span>
+      <template v-else>
+        <span class="mp-pred">{{ predDisplay?.score ?? `${prediccion.goles_local}–${prediccion.goles_visitante}` }}</span>
+        <span
+          v-if="esEliminatoria && predDisplay?.penales"
+          class="mp-pen"
+          :title="`Pasa por penales: ${predDisplay.penales}`"
+        >
+          P {{ predDisplay.penales }}
+        </span>
+        <span v-if="tieneReal" class="mp-real">
+          R {{ realDisplay?.score ?? `${resultado.goles_local}–${resultado.goles_visitante}` }}
+          <template v-if="realDisplay?.penales">
+            · P {{ realDisplay.penales }}
+          </template>
+        </span>
+      </template>
     </div>
 
     <div class="mp-side mp-side--away">
@@ -105,7 +113,8 @@ onMounted(load)
       <span v-else class="mp-crest mp-crest--empty" aria-hidden="true" />
     </div>
 
-    <span v-if="acierto" class="mp-pts" :class="`mp-pts--${estado}`">
+    <span v-if="prediccionOculta" class="mp-pts mp-pts--pendiente">—</span>
+    <span v-else-if="acierto" class="mp-pts" :class="`mp-pts--${estado}`">
       {{ acierto.pts > 0 ? `+${acierto.pts}` : '0' }}
     </span>
     <span v-else class="mp-pts mp-pts--pendiente">—</span>

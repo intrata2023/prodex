@@ -5,6 +5,8 @@ import {
   partidoEdicionCerrada,
   campeonEdicionCerrada,
   isPlaceholderEquipo,
+  mensajePrediccionContrincante,
+  mostrarPrediccionesContrincantes,
 } from './eliminatorias.js'
 
 const r32 = Array.from({ length: 16 }, (_, i) => ({
@@ -32,5 +34,13 @@ const unaHoraAntes = new Date('2026-07-01T19:00:00Z').getTime()
 console.assert(!partidoEdicionCerrada(partido, unaHoraAntes - 1))
 console.assert(partidoEdicionCerrada(partido, unaHoraAntes))
 console.assert(campeonEdicionCerrada(r32, unaHoraAntes))
+
+const elimAbierto = { fase: 'r32', equipo_local: 'Argentina', equipo_visitante: 'Francia', fecha: '2026-07-01T20:00:00Z' }
+console.assert(!mostrarPrediccionesContrincantes(elimAbierto, { eliminatoriasAbiertos: true, ahora: unaHoraAntes - 1 }))
+console.assert(mostrarPrediccionesContrincantes(elimAbierto, { eliminatoriasAbiertos: true, ahora: unaHoraAntes }))
+console.assert(mostrarPrediccionesContrincantes(elimAbierto, { eliminatoriasAbiertos: false, ahora: unaHoraAntes - 1 }))
+console.assert(mostrarPrediccionesContrincantes({ fase: 'grupos', equipo_local: 'A', equipo_visitante: 'B' }))
+console.assert(!mostrarPrediccionesContrincantes({ fase: 'r32', equipo_local: '16avos · Local 1', equipo_visitante: 'Francia' }))
+console.assert(mensajePrediccionContrincante(elimAbierto, { eliminatoriasAbiertos: true, ahora: unaHoraAntes - 1 })?.includes('Disponible desde'))
 
 console.log('eliminatorias.test.js OK')

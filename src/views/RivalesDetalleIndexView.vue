@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import AppLayout from '../components/AppLayout.vue'
+import NavBackLink from '../components/NavBackLink.vue'
 import { useSession } from '../composables/useSession.js'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
 import { fetchAllParticipantesPublic } from '../lib/dataLoaders.js'
@@ -44,8 +45,8 @@ async function cargar() {
 </script>
 
 <template>
-  <AppLayout title="Contrincantes">
-    <router-link to="/rivales" class="rd-back">← Vista rápida</router-link>
+  <AppLayout title="Predicciones detalladas">
+    <NavBackLink to="/rivales" label="Contrincantes" />
 
     <p class="rd-index-intro">
       Elegí un participante para ver todas sus predicciones, aciertos y puntos por etapa. También

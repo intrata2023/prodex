@@ -113,6 +113,12 @@ function score(pred, side) {
   return v != null ? v : null
 }
 
+function pasaPorPenales(pred, partido, side) {
+  if (!pred?.penales || !pred.ganador_penales) return false
+  const equipo = side === 'local' ? partido.equipo_local : partido.equipo_visitante
+  return pred.ganador_penales === equipo
+}
+
 function isPlaceholder(name) {
   return name?.includes('Por definir') || name?.includes('Local') || name?.includes('Visitante')
 }
@@ -188,6 +194,13 @@ function shortName(name) {
               <span v-if="score(item.pred, 'local') != null" class="bracket-score">
                 {{ score(item.pred, 'local') }}
               </span>
+              <span
+                v-if="pasaPorPenales(item.pred, item.partido, 'local')"
+                class="bracket-pen"
+                title="Pasa por penales"
+              >
+                P
+              </span>
             </div>
             <div
               class="bracket-team"
@@ -205,6 +218,13 @@ function shortName(name) {
               }}</span>
               <span v-if="score(item.pred, 'visitante') != null" class="bracket-score">
                 {{ score(item.pred, 'visitante') }}
+              </span>
+              <span
+                v-if="pasaPorPenales(item.pred, item.partido, 'visitante')"
+                class="bracket-pen"
+                title="Pasa por penales"
+              >
+                P
               </span>
             </div>
           </article>

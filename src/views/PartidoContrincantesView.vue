@@ -1,11 +1,14 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AppLayout from '../components/AppLayout.vue'
+import NavBackLink from '../components/NavBackLink.vue'
 import { useSession } from '../composables/useSession.js'
+import { useConfig } from '../composables/useConfig.js'
 import { useTeamCrests } from '../composables/useTeamCrests.js'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
 import { aciertoPrediccion } from '../lib/scoring.js'
+import { mostrarPrediccionesContrincantes } from '../lib/eliminatorias.js'
 import {
   fetchAllPartidos,
   fetchAllParticipantesPublic,
@@ -23,6 +26,7 @@ import {
 
 const route = useRoute()
 const { participanteId } = useSession()
+const { config, loadConfig } = useConfig()
 const { load, crestsForPartido, crestsLoaded } = useTeamCrests()
 
 const partido = ref(null)
@@ -31,6 +35,8 @@ const predsPorParticipante = ref({})
 const resultado = ref(null)
 const loading = ref(true)
 const error = ref('')
+const ahora = ref(Date.now())
+let relojTimer = null
 
 const partidoId = computed(() => route.params.id)
 
@@ -75,11 +81,27 @@ const realDisplay = computed(() =>
 
 const esEliminatoria = computed(() => partido.value?.fase !== 'grupos')
 
+const cargaAbierta = computed(() => {
+  if (!partido.value) return false
+  return !mostrarPrediccionesContrincantes(partido.value, {
+    eliminatoriasAbiertos: config.value.eliminatorias_abiertos,
+    ahora: ahora.value,
+  })
+})
+
 watch(partidoId, cargar)
 
-onMounted(() => {
+onMounted(async () => {
+  await loadConfig()
   load()
   cargar()
+  relojTimer = setInterval(() => {
+    ahora.value = Date.now()
+  }, 30_000)
+})
+
+onUnmounted(() => {
+  clearInterval(relojTimer)
 })
 
 async function cargar() {
@@ -139,8 +161,16 @@ function initial(nombre) {
       <button type="button" class="home-hoy-retry" @click="cargar">Reintentar</button>
     </p>
 
+    <div v-else-if="cargaAbierta" class="pc">
+      <NavBackLink to="/dashboard" label="Inicio" />
+      <p class="home-hoy-empty">
+        Las predicciones de los demás se muestran cuando cierra la carga de este cruce
+        (1 h antes del partido).
+      </p>
+    </div>
+
     <div v-else-if="partido" class="pc">
-      <router-link to="/dashboard" class="rd-back">← Inicio</router-link>
+      <NavBackLink to="/dashboard" label="Inicio" />
 
       <header class="pc-partido">
         <p v-if="partido.fecha" class="pc-hora">

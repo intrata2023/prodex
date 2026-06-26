@@ -1,8 +1,10 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import AppLayout from '../components/AppLayout.vue'
+import NavBackLink from '../components/NavBackLink.vue'
 import MisPrediccionRow from '../components/MisPrediccionRow.vue'
 import { useSession } from '../composables/useSession.js'
+import { usePrediccionContrincanteVisibilidad } from '../composables/usePrediccionContrincanteVisibilidad.js'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
 import {
   fetchAllPartidos,
@@ -23,6 +25,12 @@ import {
 } from '../lib/misPredicciones.js'
 
 const { participanteId } = useSession()
+const {
+  iniciar: iniciarVisibilidad,
+  detener: detenerVisibilidad,
+  mensajePrediccionOculta,
+  filtrarPrediccionesVisibles,
+} = usePrediccionContrincanteVisibilidad()
 const partidos = ref([])
 const partidosLista = computed(() => partidosListadoPredicciones(partidos.value))
 const rivales = ref([])
@@ -55,18 +63,28 @@ function partidosDelRival(id) {
 }
 
 function resumenRivalDia(id) {
-  return resumenPuntosDia(partidosDelRival(id), prediccionesRival(id), resultados.value)
+  const lista = partidosDelRival(id)
+  const preds = filtrarPrediccionesVisibles(lista, prediccionesRival(id))
+  const resumen = resumenPuntosDia(lista, preds, resultados.value)
+  const ocultas = lista.filter(
+    (p) => p.fase !== 'grupos' && prediccionesRival(id)[p.id] && mensajePrediccionOculta(p)
+  ).length
+  return { ...resumen, ocultas }
 }
 
 function resumenDiaTexto(resumen) {
   if (!resumen.total) return 'Sin predicciones este día'
+  const ocultasTxt =
+    resumen.ocultas > 0
+      ? ` · ${resumen.ocultas} oculta${resumen.ocultas === 1 ? '' : 's'}`
+      : ''
   if (!resumen.conResultado) {
-    return `${resumen.total} ${resumen.total === 1 ? 'partido' : 'partidos'} · sin resultados`
+    return `${resumen.total} ${resumen.total === 1 ? 'partido' : 'partidos'} · sin resultados${ocultasTxt}`
   }
   const partes = [`${resumen.pts} pts`]
   if (resumen.exacto) partes.push(`${resumen.exacto} exacto${resumen.exacto === 1 ? '' : 's'}`)
   if (resumen.parcial) partes.push(`${resumen.parcial} parcial${resumen.parcial === 1 ? '' : 'es'}`)
-  return partes.join(' · ')
+  return partes.join(' · ') + ocultasTxt
 }
 
 function toggleRival(id) {
@@ -85,7 +103,12 @@ function irAHoy() {
   offsetDias.value = 0
 }
 
-onMounted(cargar)
+onMounted(async () => {
+  await iniciarVisibilidad()
+  cargar()
+})
+
+onUnmounted(detenerVisibilidad)
 
 async function cargar() {
   loading.value = true
@@ -134,8 +157,12 @@ async function cargar() {
 
 <template>
   <AppLayout title="Contrincantes">
+    <NavBackLink to="/dashboard" label="Inicio" />
+
     <p class="rivales-intro">
       Ordenados según la tabla. Tocá un nombre para el día elegido, o entrá al detalle completo.
+      En eliminatorias, las predicciones de los demás se van revelando a medida que cierra la carga
+      de cada cruce (1 h antes del partido).
       <router-link to="/rivales/detalle" class="rivales-intro-link rivales-intro-link--cta">
         Ver predicciones detalladas
       </router-link>
@@ -258,6 +285,7 @@ async function cargar() {
                 :partido="p"
                 :prediccion="prediccionesRival(rival.id)[p.id]"
                 :resultado="resultados[p.id]"
+                :mensaje-prediccion-oculta="mensajePrediccionOculta(p)"
               />
             </div>
           </div>

@@ -1,9 +1,11 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AppLayout from '../components/AppLayout.vue'
+import NavBackLink from '../components/NavBackLink.vue'
 import MisPrediccionRow from '../components/MisPrediccionRow.vue'
 import { useSession } from '../composables/useSession.js'
+import { usePrediccionContrincanteVisibilidad } from '../composables/usePrediccionContrincanteVisibilidad.js'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
 import { mapPrediccionesACanonica } from '../lib/participantProgress.js'
 import {
@@ -27,6 +29,12 @@ import {
 
 const route = useRoute()
 const { participanteId } = useSession()
+const {
+  iniciar: iniciarVisibilidad,
+  detener: detenerVisibilidad,
+  mensajePrediccionOculta: mensajeOcultaBase,
+  filtrarPrediccionesVisibles,
+} = usePrediccionContrincanteVisibilidad()
 const rival = ref(null)
 const partidos = ref([])
 const predicciones = ref({})
@@ -59,7 +67,11 @@ const partidosFiltrados = computed(() => {
 })
 
 const resumenActivo = computed(() =>
-  resumenPredicciones(partidosFiltrados.value, predicciones.value, resultados.value)
+  resumenPredicciones(
+    partidosFiltrados.value,
+    filtrarPrediccionesVisibles(partidosFiltrados.value, predicciones.value),
+    resultados.value
+  )
 )
 
 const claveDia = computed(() => claveArgentinaOffset(offsetDias.value))
@@ -73,8 +85,17 @@ const partidosDelDiaActivo = computed(() =>
 )
 
 const resumenDia = computed(() =>
-  resumenPuntosDia(partidosDelDiaActivo.value, predicciones.value, resultados.value)
+  resumenPuntosDia(
+    partidosDelDiaActivo.value,
+    filtrarPrediccionesVisibles(partidosDelDiaActivo.value, predicciones.value),
+    resultados.value
+  )
 )
+
+function mensajePrediccionOculta(partido) {
+  if (esYo.value) return ''
+  return mensajeOcultaBase(partido)
+}
 
 const bloquesHistorial = computed(() => agruparPorFecha(partidosFiltrados.value))
 
@@ -103,7 +124,12 @@ function irAHoy() {
   offsetDias.value = 0
 }
 
-onMounted(cargar)
+onMounted(async () => {
+  await iniciarVisibilidad()
+  cargar()
+})
+
+onUnmounted(detenerVisibilidad)
 
 async function cargar() {
   loading.value = true
@@ -154,7 +180,7 @@ async function cargar() {
 </script>
 
 <template>
-  <AppLayout title="">
+  <AppLayout :title="esYo ? 'Mis predicciones' : ''">
     <div v-if="loading" class="text-center py-5">
       <div class="spinner-border text-primary" role="status" />
     </div>
@@ -165,7 +191,10 @@ async function cargar() {
     </p>
 
     <div v-else-if="rival" class="rd">
-      <router-link to="/rivales/detalle" class="rd-back">← Contrincantes</router-link>
+      <NavBackLink
+        :to="esYo ? '/dashboard' : '/rivales/detalle'"
+        :label="esYo ? 'Inicio' : 'Predicciones detalladas'"
+      />
 
       <header class="rd-hero">
         <div class="rd-hero-main">
@@ -265,6 +294,10 @@ async function cargar() {
         </div>
       </nav>
 
+      <p v-if="!esYo && fase === 'eliminatorias'" class="rd-aviso-ocultas">
+        En eliminatorias, las predicciones se revelan 1 h antes de cada partido.
+      </p>
+
       <p v-if="partidosFiltrados.length === 0" class="empty-state">
         Todavía no cargó predicciones en esta etapa.
       </p>
@@ -302,6 +335,7 @@ async function cargar() {
                 :partido="p"
                 :prediccion="predicciones[p.id]"
                 :resultado="resultados[p.id]"
+                :mensaje-prediccion-oculta="mensajePrediccionOculta(p)"
               />
             </div>
           </template>
@@ -317,6 +351,7 @@ async function cargar() {
                 :partido="p"
                 :prediccion="predicciones[p.id]"
                 :resultado="resultados[p.id]"
+                :mensaje-prediccion-oculta="mensajePrediccionOculta(p)"
               />
             </div>
           </section>
