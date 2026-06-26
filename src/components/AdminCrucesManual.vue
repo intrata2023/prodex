@@ -6,6 +6,7 @@ import {
   FASES_ELIM_ADMIN,
   cuadroR32Completo,
   equiposDisponiblesAdmin,
+  equiposOpcionesCruceAdmin,
   isPlaceholderEquipo,
 } from '../lib/eliminatorias.js'
 
@@ -32,12 +33,8 @@ const partidosFase = computed(() =>
 
 const r32Completo = computed(() => cuadroR32Completo(props.partidos))
 
-function equiposParaPartido(p) {
-  const base = equipos.value
-  const extra = []
-  if (!isPlaceholderEquipo(p.equipo_local)) extra.push(p.equipo_local)
-  if (!isPlaceholderEquipo(p.equipo_visitante)) extra.push(p.equipo_visitante)
-  return [...new Set([...base, ...extra])].sort((a, b) => a.localeCompare(b, 'es'))
+function equiposParaPartido(p, lado) {
+  return equiposOpcionesCruceAdmin(props.partidos, p, lado, equipos.value)
 }
 
 function ladoConfirmado(nombre) {
@@ -87,8 +84,9 @@ async function cambiarEquipo(partido, lado, raw) {
     <div class="panel-card-header">Armar cruces a mano</div>
     <div class="panel-card-body">
       <p class="admin-cruces-intro">
-        Los equipos ya definidos (API o carga previa) aparecen en verde. Completá solo el rival
-        que falte con el desplegable.
+        Completá solo los lados que faltan; los confirmados se ven en verde («Cambiar» para editar).
+        Cada desplegable muestra equipos libres en esa fase: no aparecen los ya usados en otro
+        cruce ni el rival del mismo partido.
       </p>
 
       <label class="form-label">Fase</label>
@@ -144,7 +142,7 @@ async function cambiarEquipo(partido, lado, raw) {
                   @change="cambiarEquipo(p, 'local', $event.target.value)"
                 >
                   <option value="" disabled>Elegir local…</option>
-                  <option v-for="e in equiposParaPartido(p)" :key="'l-' + p.id + e" :value="e">
+                  <option v-for="e in equiposParaPartido(p, 'local')" :key="'l-' + p.id + e" :value="e">
                     {{ e }}
                   </option>
                 </select>
@@ -173,7 +171,7 @@ async function cambiarEquipo(partido, lado, raw) {
                   @change="cambiarEquipo(p, 'visitante', $event.target.value)"
                 >
                   <option value="" disabled>Elegir visitante…</option>
-                  <option v-for="e in equiposParaPartido(p)" :key="'v-' + p.id + e" :value="e">
+                  <option v-for="e in equiposParaPartido(p, 'visitante')" :key="'v-' + p.id + e" :value="e">
                     {{ e }}
                   </option>
                 </select>

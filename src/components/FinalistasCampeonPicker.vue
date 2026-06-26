@@ -58,8 +58,9 @@ function onChange() {
         <template v-if="cierreLabel"> ({{ cierreLabel }})</template>.
       </p>
       <p v-else class="finalistas-aviso finalistas-aviso--ok">
-        Elegí un finalista de cada mitad del cuadro y el campeón. Se bloquea 1 h antes del
-        primer cruce.
+        Elegí un finalista de cada mitad del cuadro y el campeón. Las listas muestran solo los
+        equipos de esa mitad en los 16avos (8 partidos por lado), según el cuadro cargado.
+        Se bloquea 1 h antes del primer cruce.
       </p>
 
       <div class="stack-form">

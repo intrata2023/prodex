@@ -161,6 +161,38 @@ export function equiposDisponiblesAdmin(partidos) {
   return [...equipos].sort((a, b) => a.localeCompare(b, 'es'))
 }
 
+/** Equipos ya asignados en otros partidos de la misma fase. */
+export function equiposOcupadosEnFase(partidos, fase, excluirPartidoId = null) {
+  const ocupados = new Set()
+  for (const p of partidos || []) {
+    if (p.fase !== fase) continue
+    if (excluirPartidoId && p.id === excluirPartidoId) continue
+    if (!isPlaceholderEquipo(p.equipo_local)) ocupados.add(p.equipo_local)
+    if (!isPlaceholderEquipo(p.equipo_visitante)) ocupados.add(p.equipo_visitante)
+  }
+  return ocupados
+}
+
+/** Opciones de un desplegable admin: libres en la fase + el equipo actual de ese lado. */
+export function equiposOpcionesCruceAdmin(partidos, partido, lado, equiposBase = []) {
+  if (!partido) return []
+
+  const actual = lado === 'local' ? partido.equipo_local : partido.equipo_visitante
+  const rival = lado === 'local' ? partido.equipo_visitante : partido.equipo_local
+  const ocupados = equiposOcupadosEnFase(partidos, partido.fase, partido.id)
+  if (!isPlaceholderEquipo(rival)) ocupados.add(rival)
+
+  const pool = new Set(equiposBase)
+  if (!isPlaceholderEquipo(actual)) pool.add(actual)
+
+  return [...pool]
+    .filter((e) => {
+      if (!isPlaceholderEquipo(actual) && e === actual) return true
+      return !ocupados.has(e)
+    })
+    .sort((a, b) => a.localeCompare(b, 'es'))
+}
+
 export const FASES_ELIM_ADMIN = [
   { value: 'r32', label: '16avos de final' },
   { value: 'r16', label: 'Octavos de final' },

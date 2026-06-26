@@ -2,6 +2,7 @@ import {
   cuadroR32Completo,
   cruceEliminatoriaCompleto,
   equiposMitadCuadro,
+  equiposOpcionesCruceAdmin,
   partidoEdicionCerrada,
   campeonEdicionCerrada,
   isPlaceholderEquipo,
@@ -42,5 +43,13 @@ console.assert(mostrarPrediccionesContrincantes(elimAbierto, { eliminatoriasAbie
 console.assert(mostrarPrediccionesContrincantes({ fase: 'grupos', equipo_local: 'A', equipo_visitante: 'B' }))
 console.assert(!mostrarPrediccionesContrincantes({ fase: 'r32', equipo_local: '16avos · Local 1', equipo_visitante: 'Francia' }))
 console.assert(mensajePrediccionContrincante(elimAbierto, { eliminatoriasAbiertos: true, ahora: unaHoraAntes - 1 })?.includes('Disponible desde'))
+
+const base = ['Argentina', 'Francia', 'Brasil', 'Alemania']
+const p1 = { id: 'a', fase: 'r32', equipo_local: 'Argentina', equipo_visitante: 'Por definir' }
+const p2 = { id: 'b', fase: 'r32', equipo_local: 'Francia', equipo_visitante: 'Brasil' }
+const optsLocal = equiposOpcionesCruceAdmin([p1, p2], p1, 'local', base)
+console.assert(optsLocal.includes('Argentina') && !optsLocal.includes('Francia') && !optsLocal.includes('Brasil'))
+const optsVisit = equiposOpcionesCruceAdmin([p1, p2], p1, 'visitante', base)
+console.assert(!optsVisit.includes('Argentina') && optsVisit.includes('Alemania') && !optsVisit.includes('Francia'))
 
 console.log('eliminatorias.test.js OK')
