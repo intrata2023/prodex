@@ -38,12 +38,6 @@ onMounted(loadConfig)
     <p class="home-section-label">Menú</p>
 
     <div class="home-tiles">
-      <router-link to="/mis-predicciones" class="home-tile">
-        <span class="home-tile-icon" aria-hidden="true">◎</span>
-        <span class="home-tile-label">Ver mis predicciones</span>
-        <span class="home-tile-arrow" aria-hidden="true">›</span>
-      </router-link>
-
       <router-link
         to="/grupos"
         class="home-tile"

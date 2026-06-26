@@ -97,15 +97,21 @@ async function cargar() {
 
 <template>
   <section class="home-hoy">
+    <nav class="home-hoy-links-bar" aria-label="Predicciones">
+      <RouterLink to="/rivales" class="home-hoy-link home-hoy-link--cta">
+        Ver contrincantes
+      </RouterLink>
+      <RouterLink
+        v-if="participanteId"
+        :to="`/rivales/detalle/${participanteId}`"
+        class="home-hoy-link home-hoy-link--sec"
+      >
+        Ver mis predicciones
+      </RouterLink>
+    </nav>
+
     <div class="home-hoy-head">
       <h2 class="home-hoy-title">Mis partidos</h2>
-      <div class="home-hoy-links">
-        <RouterLink to="/rivales" class="home-hoy-link">Ver predicciones de contrincantes</RouterLink>
-        <RouterLink to="/rivales/detalle" class="home-hoy-link">
-          Ver predicciones detalladas
-        </RouterLink>
-        <RouterLink to="/mis-predicciones" class="home-hoy-link">Ver todo</RouterLink>
-      </div>
     </div>
 
     <div class="home-hoy-nav">

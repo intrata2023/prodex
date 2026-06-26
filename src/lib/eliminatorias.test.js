@@ -1,5 +1,6 @@
 import {
   cuadroR32Completo,
+  cruceEliminatoriaCompleto,
   equiposMitadCuadro,
   partidoEdicionCerrada,
   campeonEdicionCerrada,
@@ -16,6 +17,8 @@ const r32 = Array.from({ length: 16 }, (_, i) => ({
 
 console.assert(!isPlaceholderEquipo('Argentina'))
 console.assert(isPlaceholderEquipo('16avos · Local 1'))
+console.assert(!cruceEliminatoriaCompleto({ fase: 'r32', equipo_local: 'Argentina', equipo_visitante: '16avos de final · Visitante 1' }))
+console.assert(cruceEliminatoriaCompleto({ fase: 'r32', equipo_local: 'Argentina', equipo_visitante: 'Francia' }))
 console.assert(cuadroR32Completo(r32))
 
 const incompleto = [{ ...r32[0], equipo_local: '16avos · Local 1' }, ...r32.slice(1)]

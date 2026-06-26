@@ -11,6 +11,7 @@ import { supabase, supabaseConfigured } from '../lib/supabase.js'
 import { fetchAllPartidos } from '../lib/dataLoaders.js'
 import {
   campeonEdicionCerrada,
+  cruceEliminatoriaCompleto,
   cuadroR32Completo,
   equiposMitadCuadro,
   formatCierreRelativo,
@@ -96,10 +97,17 @@ async function cargar() {
 }
 
 function partidoBloqueado(partido) {
-  return bloqueadoGlobal.value || partidoEdicionCerrada(partido, ahora.value)
+  return (
+    bloqueadoGlobal.value ||
+    !cruceEliminatoriaCompleto(partido) ||
+    partidoEdicionCerrada(partido, ahora.value)
+  )
 }
 
 function mensajeCierrePartido(partido) {
+  if (!cruceEliminatoriaCompleto(partido)) {
+    return 'Todavía no están definidos los dos equipos de este cruce.'
+  }
   if (bloqueadoGlobal.value) return ''
   if (!partidoEdicionCerrada(partido, ahora.value)) {
     if (partido.fecha) {
@@ -112,7 +120,9 @@ function mensajeCierrePartido(partido) {
 
 async function guardar(payload) {
   const partido = partidos.value.find((p) => p.id === payload.partido_id)
-  if (!partido || partidoBloqueado(partido) || !supabaseConfigured) return
+  if (!partido || !cruceEliminatoriaCompleto(partido) || partidoBloqueado(partido) || !supabaseConfigured) {
+    return
+  }
   await supabase.rpc('upsert_prediccion', {
     p_participante_id: participanteId.value,
     p_partido_id: payload.partido_id,
@@ -185,7 +195,7 @@ function guardarCampeon() {
               :lock-message="mensajeCierrePartido(p)"
               @save="guardar"
             />
-            <PartidoRivalesLink :partido-id="p.id" />
+            <PartidoRivalesLink v-if="cruceEliminatoriaCompleto(p)" :partido-id="p.id" />
           </div>
         </div>
 

@@ -23,6 +23,15 @@ export function isPlaceholderEquipo(name) {
   )
 }
 
+/** Ambos equipos del cruce están confirmados (no placeholders). */
+export function cruceEliminatoriaCompleto(partido) {
+  if (!partido || partido.fase === 'grupos') return true
+  return (
+    !isPlaceholderEquipo(partido.equipo_local) &&
+    !isPlaceholderEquipo(partido.equipo_visitante)
+  )
+}
+
 export function partidosR32(partidos) {
   return [...(partidos || [])]
     .filter((p) => p.fase === 'r32')

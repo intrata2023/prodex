@@ -6,6 +6,7 @@ defineProps({
 
 <template>
   <RouterLink :to="`/partido/${partidoId}/contrincantes`" class="partido-rivales-link">
-    Ver todos
+    <span class="partido-rivales-link__label">Ver todos</span>
+    <span class="partido-rivales-link__arrow" aria-hidden="true">›</span>
   </RouterLink>
 </template>

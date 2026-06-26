@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AppLayout from '../components/AppLayout.vue'
 import MisPrediccionRow from '../components/MisPrediccionRow.vue'
+import { useSession } from '../composables/useSession.js'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
 import { mapPrediccionesACanonica } from '../lib/participantProgress.js'
 import {
@@ -25,6 +26,7 @@ import {
 } from '../lib/misPredicciones.js'
 
 const route = useRoute()
+const { participanteId } = useSession()
 const rival = ref(null)
 const partidos = ref([])
 const predicciones = ref({})
@@ -37,6 +39,8 @@ const modo = ref('dia')
 const offsetDias = ref(0)
 
 const rivalId = computed(() => route.params.id)
+
+const esYo = computed(() => rival.value?.id === participanteId.value)
 
 const partidosLista = computed(() => partidosListadoPredicciones(partidos.value))
 
@@ -170,7 +174,10 @@ async function cargar() {
           </span>
           <span class="rd-avatar">{{ initial(rival.nombre) }}</span>
           <div class="rd-hero-text">
-            <h1 class="rd-nombre">{{ rival.nombre }}</h1>
+            <h1 class="rd-nombre">
+              {{ rival.nombre }}
+              <span v-if="esYo" class="pc-yo">vos</span>
+            </h1>
             <p class="rd-desglose">
               {{ rival.desglose?.grupos ?? 0 }} grupos ·
               {{ rival.desglose?.eliminatorias ?? 0 }} elim. ·

@@ -256,12 +256,53 @@ body {
   overflow: hidden;
 }
 
+.home-hoy-links-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.625rem 0.875rem;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.home-hoy-link--cta {
+  display: block;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius);
+  border: 1px solid rgba(116, 172, 223, 0.4);
+  background: rgba(116, 172, 223, 0.12);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  text-align: center;
+  color: #74acdf;
+}
+
+.home-hoy-link--cta:hover,
+.home-hoy-link--cta:active {
+  background: rgba(116, 172, 223, 0.2);
+  opacity: 1;
+}
+
+.home-hoy-link--sec {
+  display: block;
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.home-hoy-link--sec:hover,
+.home-hoy-link--sec:active {
+  color: #74acdf;
+  opacity: 1;
+}
+
 .home-hoy-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 0.75rem 0.875rem 0.5rem;
+  padding: 0.625rem 0.875rem 0.5rem;
   border-bottom: 1px solid var(--border);
 }
 
@@ -289,15 +330,16 @@ body {
 }
 
 .home-hoy-link {
-  flex-shrink: 0;
   font-size: 0.75rem;
   font-weight: 600;
   color: #74acdf;
   text-decoration: none;
+  white-space: nowrap;
 }
 
+.home-hoy-link:hover,
 .home-hoy-link:active {
-  opacity: 0.8;
+  opacity: 0.85;
 }
 
 .home-hoy-nav {
@@ -438,24 +480,45 @@ body {
   border-bottom: none;
 }
 
-/* Link sutil — predicciones de todos */
+/* Acción por partido — predicciones de todos */
 
 .partido-rivales-link {
-  display: block;
-  padding: 0.1875rem 0.75rem 0.4375rem;
-  text-align: right;
-  font-size: 0.6875rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  width: 100%;
+  margin: 0;
+  padding: 0.3125rem 0.75rem 0.375rem;
+  border: none;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  font-size: 0.75rem;
   font-weight: 600;
-  color: #6ee7a0;
+  color: var(--text-muted);
   text-decoration: none;
-  opacity: 0.85;
-  transition: color 0.15s, opacity 0.15s;
+  letter-spacing: 0.01em;
+  transition: color 0.15s, background 0.15s;
+}
+
+.partido-rivales-link__arrow {
+  font-size: 0.8125rem;
+  line-height: 1;
+  opacity: 0.55;
+  transition: transform 0.15s, opacity 0.15s;
 }
 
 .partido-rivales-link:hover,
 .partido-rivales-link:active {
-  color: #86efac;
+  color: #74acdf;
+  background: rgba(116, 172, 223, 0.06);
+}
+
+.partido-rivales-link:hover .partido-rivales-link__arrow,
+.partido-rivales-link:active .partido-rivales-link__arrow {
   opacity: 1;
+  transform: translateX(1px);
 }
 
 .mp-wrap {
@@ -472,8 +535,6 @@ body {
 
 .mp-contrincantes-link {
   border-top: none;
-  padding-top: 0;
-  padding-bottom: 0.5rem;
 }
 
 .elim-partido-item {
@@ -481,8 +542,7 @@ body {
 }
 
 .elim-partido-item .partido-rivales-link {
-  padding: 0 0.875rem 0.625rem;
-  margin-top: -0.25rem;
+  padding-inline: 0.875rem;
 }
 
 .elim-partido-item .match-card {
@@ -704,6 +764,23 @@ body {
 
 .rivales-intro-link:hover {
   text-decoration: underline;
+}
+
+.rivales-intro-link--cta {
+  display: block;
+  width: 100%;
+  margin-top: 0.75rem;
+  padding: 0.625rem 1rem;
+  border-radius: var(--radius);
+  border: 1px solid rgba(116, 172, 223, 0.35);
+  background: rgba(116, 172, 223, 0.1);
+  text-align: center;
+  text-decoration: none;
+}
+
+.rivales-intro-link--cta:hover {
+  text-decoration: none;
+  background: rgba(116, 172, 223, 0.18);
 }
 
 .rivales-detalle-back-wrap {
@@ -979,6 +1056,15 @@ body {
 .rd-index-row:hover,
 .rd-index-row:active {
   background: rgba(255, 255, 255, 0.04);
+}
+
+.rd-index-row--yo {
+  background: rgba(99, 102, 241, 0.06);
+}
+
+.rd-index-row--yo:hover,
+.rd-index-row--yo:active {
+  background: rgba(99, 102, 241, 0.1);
 }
 
 .rd-index-info {
