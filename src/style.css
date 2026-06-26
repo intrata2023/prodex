@@ -284,16 +284,34 @@ body {
   opacity: 1;
 }
 
-.home-hoy-link--sec {
-  display: block;
-  text-align: center;
-  font-size: 0.75rem;
-  color: var(--text-muted);
+.home-hoy-links-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
 }
 
-.home-hoy-link--sec:hover,
-.home-hoy-link--sec:active {
+.home-hoy-link--pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.625rem;
+  padding: 0.5rem 0.625rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.home-hoy-link--pill:hover,
+.home-hoy-link--pill:active {
   color: #74acdf;
+  border-color: rgba(116, 172, 223, 0.35);
+  background: rgba(116, 172, 223, 0.08);
   opacity: 1;
 }
 
@@ -1944,6 +1962,10 @@ a.home-tile:active {
   font-size: 0.8125rem;
   color: var(--text-muted);
   line-height: 1.45;
+}
+
+.finalistas-panel {
+  scroll-margin-top: 0.75rem;
 }
 
 .finalistas-aviso {

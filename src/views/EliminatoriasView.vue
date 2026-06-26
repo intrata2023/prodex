@@ -1,5 +1,6 @@
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
+import { useRoute } from 'vue-router'
 import AppLayout from '../components/AppLayout.vue'
 import MatchPredictionCard from '../components/MatchPredictionCard.vue'
 import PartidoRivalesLink from '../components/PartidoRivalesLink.vue'
@@ -30,6 +31,7 @@ const RONDAS = [
 
 const { participanteId } = useSession()
 const { config, loadConfig } = useConfig()
+const route = useRoute()
 const partidos = ref([])
 const predicciones = ref({})
 const campeon = ref({ equipo: '', finalista_1: '', finalista_2: '' })
@@ -67,7 +69,22 @@ onMounted(async () => {
   relojTimer = setInterval(() => {
     ahora.value = Date.now()
   }, 30_000)
+  await irAFinalistasCampeonSiCorresponde()
 })
+
+watch(
+  () => route.hash,
+  () => {
+    irAFinalistasCampeonSiCorresponde()
+  }
+)
+
+async function irAFinalistasCampeonSiCorresponde() {
+  if (route.hash !== '#finalistas-campeon') return
+  vista.value = 'cargar'
+  await nextTick()
+  document.getElementById('finalistas-campeon')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
 
 onUnmounted(() => {
   clearInterval(relojTimer)

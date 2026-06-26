@@ -123,13 +123,20 @@ async function cargar() {
       <RouterLink to="/rivales" class="home-hoy-link home-hoy-link--cta">
         Ver contrincantes
       </RouterLink>
-      <RouterLink
-        v-if="participanteId"
-        :to="`/rivales/detalle/${participanteId}`"
-        class="home-hoy-link home-hoy-link--sec"
-      >
-        Ver mis predicciones
-      </RouterLink>
+      <div v-if="participanteId" class="home-hoy-links-row">
+        <RouterLink
+          :to="`/rivales/detalle/${participanteId}`"
+          class="home-hoy-link home-hoy-link--pill"
+        >
+          Mis predicciones
+        </RouterLink>
+        <RouterLink
+          to="/eliminatorias#finalistas-campeon"
+          class="home-hoy-link home-hoy-link--pill"
+        >
+          Finalistas y campeón
+        </RouterLink>
+      </div>
     </nav>
 
     <div class="home-hoy-head">

@@ -47,7 +47,7 @@ function onChange() {
 </script>
 
 <template>
-  <div class="panel-card panel-card--highlight finalistas-panel">
+  <div id="finalistas-campeon" class="panel-card panel-card--highlight finalistas-panel">
     <div class="panel-card-header">Finalistas y campeón</div>
     <div class="panel-card-body">
       <p v-if="!cuadroListo" class="finalistas-aviso">
