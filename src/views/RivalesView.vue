@@ -4,7 +4,13 @@ import AppLayout from '../components/AppLayout.vue'
 import MisPrediccionRow from '../components/MisPrediccionRow.vue'
 import { useSession } from '../composables/useSession.js'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
-import { fetchAllRows } from '../lib/fetchAll.js'
+import {
+  fetchAllPartidos,
+  fetchAllParticipantesPublic,
+  fetchAllPredicciones,
+  fetchAllResultados,
+  mapResultadosPorPartido,
+} from '../lib/dataLoaders.js'
 import { mapPrediccionesACanonica } from '../lib/participantProgress.js'
 import {
   claveArgentinaOffset,
@@ -23,6 +29,7 @@ const rivales = ref([])
 const prediccionesPorRival = ref({})
 const resultados = ref({})
 const loading = ref(true)
+const error = ref('')
 const offsetDias = ref(0)
 const expandido = ref(null)
 
@@ -82,43 +89,46 @@ onMounted(cargar)
 
 async function cargar() {
   loading.value = true
+  error.value = ''
   if (!supabaseConfigured) {
     loading.value = false
     return
   }
 
-  const [{ data: pts }, { data: participantes }, preds, { data: res }] = await Promise.all([
-      supabase.from('partidos').select('*').order('fecha').order('orden'),
-      supabase
-        .from('participantes_public')
-        .select('id, nombre, puntos_total')
-        .order('puntos_total', { ascending: false }),
-      fetchAllRows(supabase, 'predicciones', '*'),
-      supabase.from('resultados_reales').select('*'),
+  try {
+    const [pts, participantes, preds, res] = await Promise.all([
+      fetchAllPartidos(supabase),
+      fetchAllParticipantesPublic(supabase),
+      fetchAllPredicciones(supabase),
+      fetchAllResultados(supabase),
     ])
 
-  partidos.value = pts || []
-  resultados.value = Object.fromEntries((res || []).map((r) => [r.partido_id, r]))
+    partidos.value = pts
+    resultados.value = mapResultadosPorPartido(res)
 
-  const grupos = partidos.value.filter((p) => p.fase === 'grupos')
-  const porParticipante = {}
-  for (const p of preds || []) {
-    if (!porParticipante[p.participante_id]) porParticipante[p.participante_id] = []
-    porParticipante[p.participante_id].push(p)
+    const grupos = partidos.value.filter((p) => p.fase === 'grupos')
+    const porParticipante = {}
+    for (const p of preds) {
+      if (!porParticipante[p.participante_id]) porParticipante[p.participante_id] = []
+      porParticipante[p.participante_id].push(p)
+    }
+
+    const mapa = {}
+    for (const [id, lista] of Object.entries(porParticipante)) {
+      const predMap = Object.fromEntries(lista.map((p) => [p.partido_id, p]))
+      mapa[id] = { ...predMap, ...mapPrediccionesACanonica(grupos, predMap) }
+    }
+    prediccionesPorRival.value = mapa
+
+    rivales.value = participantes
+      .map((p, i) => ({ ...p, puesto: i + 1 }))
+      .filter((p) => p.id !== participanteId.value)
+  } catch (e) {
+    console.error(e)
+    error.value = 'No se pudieron cargar los contrincantes. Probá de nuevo.'
+  } finally {
+    loading.value = false
   }
-
-  const mapa = {}
-  for (const [id, lista] of Object.entries(porParticipante)) {
-    const predMap = Object.fromEntries(lista.map((p) => [p.partido_id, p]))
-    mapa[id] = { ...predMap, ...mapPrediccionesACanonica(grupos, predMap) }
-  }
-  prediccionesPorRival.value = mapa
-
-  rivales.value = (participantes || [])
-    .map((p, i) => ({ ...p, puesto: i + 1 }))
-    .filter((p) => p.id !== participanteId.value)
-
-  loading.value = false
 }
 </script>
 
@@ -158,6 +168,11 @@ async function cargar() {
       <div v-if="loading" class="home-hoy-loading">
         <div class="spinner-border spinner-border-sm text-secondary" role="status" />
       </div>
+
+      <p v-else-if="error" class="home-hoy-empty">
+        {{ error }}
+        <button type="button" class="home-hoy-retry" @click="cargar">Reintentar</button>
+      </p>
 
       <p v-else-if="!supabaseConfigured" class="home-hoy-empty">
         Configurá Supabase para ver a tus contrincantes.

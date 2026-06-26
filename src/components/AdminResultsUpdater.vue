@@ -1,7 +1,12 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
-import { fetchAllRows } from '../lib/fetchAll.js'
+import {
+  fetchAllPartidos,
+  fetchAllPredicciones,
+  fetchAllResultados,
+  mapResultadosPorPartido,
+} from '../lib/dataLoaders.js'
 import { fetchWorldCupMatches, mapApiMatchToResult, matchPartidoLocal } from '../lib/syncResults.js'
 import { calcularTodosLosPuntos } from '../lib/scoring.js'
 import { useAdminPin } from '../composables/useAdminPin.js'
@@ -14,10 +19,12 @@ const loading = ref(false)
 
 async function cargar() {
   if (!supabaseConfigured) return
-  const { data: pts } = await supabase.from('partidos').select('*').order('orden')
-  partidos.value = pts || []
-  const { data: res } = await supabase.from('resultados_reales').select('*')
-  resultados.value = Object.fromEntries((res || []).map((r) => [r.partido_id, r]))
+  const [pts, res] = await Promise.all([
+    fetchAllPartidos(supabase),
+    fetchAllResultados(supabase),
+  ])
+  partidos.value = pts
+  resultados.value = mapResultadosPorPartido(res)
 }
 
 async function guardarResultado(partidoId, field, value) {
@@ -91,22 +98,22 @@ async function recalcular() {
   loading.value = true
   const pin = requireAdminPin()
 
-  const { data: participantes } = await supabase
-    .from('participantes_list')
-    .select('*')
-    .eq('activo', true)
-  const { data: pts } = await supabase.from('partidos').select('*')
-  const preds = await fetchAllRows(supabase, 'predicciones', '*')
-  const { data: res } = await supabase.from('resultados_reales').select('*')
-  const { data: campeones } = await supabase.from('prediccion_campeon').select('*')
-  const { data: cfg } = await supabase.from('config_public').select('campeon_real').eq('id', 1).single()
+  const [{ data: participantes }, pts, preds, res, { data: campeones }, { data: cfg }] =
+    await Promise.all([
+      supabase.from('participantes_list').select('*').eq('activo', true),
+      fetchAllPartidos(supabase),
+      fetchAllPredicciones(supabase),
+      fetchAllResultados(supabase),
+      supabase.from('prediccion_campeon').select('*'),
+      supabase.from('config_public').select('campeon_real').eq('id', 1).single(),
+    ])
 
-  const partidoFinal = (pts || []).find((p) => p.fase === 'final')
+  const partidoFinal = pts.find((p) => p.fase === 'final')
   const finalistasReales = partidoFinal
     ? [partidoFinal.equipo_local, partidoFinal.equipo_visitante]
     : []
 
-  const resultadosConGanador = (res || []).map((r) => {
+  const resultadosConGanador = res.map((r) => {
     const partido = pts.find((p) => p.id === r.partido_id)
     return { ...r, ...partido }
   })

@@ -6,6 +6,12 @@ import { useSession } from '../composables/useSession.js'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
 import { mapPrediccionesACanonica } from '../lib/participantProgress.js'
 import {
+  fetchAllPartidos,
+  fetchAllResultados,
+  fetchPrediccionesParticipante,
+  mapResultadosPorPartido,
+} from '../lib/dataLoaders.js'
+import {
   claveArgentinaOffset,
   formatFechaDiaTitulo,
   labelDiaRelativo,
@@ -20,6 +26,7 @@ const partidos = ref([])
 const predicciones = ref({})
 const resultados = ref({})
 const loading = ref(true)
+const error = ref('')
 const offsetDias = ref(0)
 
 const claveDia = computed(() => claveArgentinaOffset(offsetDias.value))
@@ -58,27 +65,33 @@ onMounted(cargar)
 
 async function cargar() {
   loading.value = true
+  error.value = ''
   if (!supabaseConfigured) {
     loading.value = false
     return
   }
 
-  const { data: pts } = await supabase.from('partidos').select('*').order('fecha').order('orden')
-  partidos.value = pts || []
+  try {
+    const [pts, preds, res] = await Promise.all([
+      fetchAllPartidos(supabase),
+      fetchPrediccionesParticipante(supabase, participanteId.value),
+      fetchAllResultados(supabase),
+    ])
 
-  const [{ data: preds }, { data: res }] = await Promise.all([
-    supabase.from('predicciones').select('*').eq('participante_id', participanteId.value),
-    supabase.from('resultados_reales').select('*'),
-  ])
-
-  const predMap = Object.fromEntries((preds || []).map((p) => [p.partido_id, p]))
-  const grupos = partidos.value.filter((p) => p.fase === 'grupos')
-  predicciones.value = {
-    ...predMap,
-    ...mapPrediccionesACanonica(grupos, predMap),
+    partidos.value = pts
+    const predMap = Object.fromEntries(preds.map((p) => [p.partido_id, p]))
+    const grupos = partidos.value.filter((p) => p.fase === 'grupos')
+    predicciones.value = {
+      ...predMap,
+      ...mapPrediccionesACanonica(grupos, predMap),
+    }
+    resultados.value = mapResultadosPorPartido(res)
+  } catch (e) {
+    console.error(e)
+    error.value = 'No se pudieron cargar los partidos. Probá de nuevo.'
+  } finally {
+    loading.value = false
   }
-  resultados.value = Object.fromEntries((res || []).map((r) => [r.partido_id, r]))
-  loading.value = false
 }
 </script>
 
@@ -121,6 +134,11 @@ async function cargar() {
     <div v-if="loading" class="home-hoy-loading">
       <div class="spinner-border spinner-border-sm text-secondary" role="status" />
     </div>
+
+    <p v-else-if="error" class="home-hoy-empty">
+      {{ error }}
+      <button type="button" class="home-hoy-retry" @click="cargar">Reintentar</button>
+    </p>
 
     <p v-else-if="!supabaseConfigured" class="home-hoy-empty">
       Configurá Supabase para ver el resumen.

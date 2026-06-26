@@ -5,6 +5,12 @@ import MisPrediccionRow from '../components/MisPrediccionRow.vue'
 import { useSession } from '../composables/useSession.js'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
 import { mapPrediccionesACanonica } from '../lib/participantProgress.js'
+import {
+  fetchAllPartidos,
+  fetchAllResultados,
+  fetchPrediccionesParticipante,
+  mapResultadosPorPartido,
+} from '../lib/dataLoaders.js'
 import { agruparPorFecha, partidosConPrediccion, partidosListadoPredicciones } from '../lib/misPredicciones.js'
 import { aciertoPrediccion } from '../lib/scoring.js'
 
@@ -13,6 +19,7 @@ const partidos = ref([])
 const predicciones = ref({})
 const resultados = ref({})
 const loading = ref(true)
+const error = ref('')
 const soloConResultado = ref(false)
 
 const partidosPredichos = computed(() =>
@@ -56,32 +63,33 @@ onMounted(cargar)
 
 async function cargar() {
   loading.value = true
+  error.value = ''
   if (!supabaseConfigured) {
     loading.value = false
     return
   }
 
-  const { data: pts } = await supabase
-    .from('partidos')
-    .select('*')
-    .order('fecha', { ascending: true, nullsFirst: false })
-    .order('orden')
+  try {
+    const [pts, preds, res] = await Promise.all([
+      fetchAllPartidos(supabase),
+      fetchPrediccionesParticipante(supabase, participanteId.value),
+      fetchAllResultados(supabase),
+    ])
 
-  partidos.value = pts || []
-
-  const [{ data: preds }, { data: res }] = await Promise.all([
-    supabase.from('predicciones').select('*').eq('participante_id', participanteId.value),
-    supabase.from('resultados_reales').select('*'),
-  ])
-
-  const predMap = Object.fromEntries((preds || []).map((p) => [p.partido_id, p]))
-  const grupos = partidos.value.filter((p) => p.fase === 'grupos')
-  predicciones.value = {
-    ...predMap,
-    ...mapPrediccionesACanonica(grupos, predMap),
+    partidos.value = pts
+    const predMap = Object.fromEntries(preds.map((p) => [p.partido_id, p]))
+    const grupos = partidos.value.filter((p) => p.fase === 'grupos')
+    predicciones.value = {
+      ...predMap,
+      ...mapPrediccionesACanonica(grupos, predMap),
+    }
+    resultados.value = mapResultadosPorPartido(res)
+  } catch (e) {
+    console.error(e)
+    error.value = 'No se pudieron cargar tus predicciones. Probá de nuevo.'
+  } finally {
+    loading.value = false
   }
-  resultados.value = Object.fromEntries((res || []).map((r) => [r.partido_id, r]))
-  loading.value = false
 }
 </script>
 
@@ -89,6 +97,13 @@ async function cargar() {
   <AppLayout title="Ver mis predicciones">
     <div v-if="loading" class="text-center py-5">
       <div class="spinner-border text-primary"></div>
+    </div>
+
+    <div v-else-if="error" class="alert alert-warning">
+      {{ error }}
+      <button type="button" class="btn btn-sm btn-outline-light ms-2" @click="cargar">
+        Reintentar
+      </button>
     </div>
 
     <div v-else-if="!supabaseConfigured" class="alert alert-info">

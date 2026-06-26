@@ -10,17 +10,15 @@ import AdminResultsUpdater from '../components/AdminResultsUpdater.vue'
 import AdminPredictionsView from '../components/AdminPredictionsView.vue'
 import AdminExport from '../components/AdminExport.vue'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
+import { fetchAllParticipantesPublic } from '../lib/dataLoaders.js'
 
 const tab = ref('config')
 const ranking = ref([])
 
 async function cargarRanking() {
   if (!supabaseConfigured) return
-  const { data } = await supabase
-    .from('participantes_list')
-    .select('id, nombre, puntos_total, desglose')
-    .order('puntos_total', { ascending: false })
-  ranking.value = (data || []).map((p, i) => ({ ...p, puesto: i + 1 }))
+  const data = await fetchAllParticipantesPublic(supabase)
+  ranking.value = data.map((p, i) => ({ ...p, puesto: i + 1 }))
 }
 
 function onTabChange(t) {
