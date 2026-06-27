@@ -302,3 +302,124 @@ export function badgeEliminatorias(done, total, campeon) {
   if (!done) return 'Sin empezar'
   return 'En curso'
 }
+
+export const FASES_ELIM_PROGRESO = [
+  { fase: 'r32', label: '16avos', short: '16av' },
+  { fase: 'r16', label: 'Octavos', short: 'Oct' },
+  { fase: 'qf', label: 'Cuartos', short: '4tos' },
+  { fase: 'sf', label: 'Semis', short: 'Semi' },
+  { fase: 'final', label: 'Final', short: 'Fin' },
+]
+
+export function partidosPorFase(partidos, fase) {
+  return (partidos || []).filter((p) => p.fase === fase)
+}
+
+export function progresoPorFase(partidosE, predsP, fase) {
+  const ids = partidosPorFase(partidosE, fase).map((p) => p.id)
+  const total = ids.length
+  const done = countCompletas(predsP, new Set(ids))
+  return { done, total, pct: progressPct(done, total) }
+}
+
+export function progresoGlobalFase(partidosE, predsAll, participanteIds, fase) {
+  const ids = new Set(partidosPorFase(partidosE, fase).map((p) => p.id))
+  const nPartidos = ids.size
+  const nUsers = participanteIds.length
+  const total = nPartidos * nUsers
+  if (!total) return { done: 0, total: 0, pct: 0, nPartidos, nUsers }
+
+  let done = 0
+  const idSet = new Set(participanteIds)
+  for (const pr of predsAll || []) {
+    if (!idSet.has(pr.participante_id)) continue
+    if (!prediccionCompleta(pr)) continue
+    if (ids.has(pr.partido_id)) done++
+  }
+  return { done, total, pct: progressPct(done, total), nPartidos, nUsers }
+}
+
+export function statusCampeon(campeon) {
+  const finalista1 = Boolean(campeon?.finalista_1?.trim?.() || campeon?.finalista_1)
+  const finalista2 = Boolean(campeon?.finalista_2?.trim?.() || campeon?.finalista_2)
+  const campeonOk = Boolean(campeon?.equipo?.trim?.() || campeon?.equipo)
+  const campos = [finalista1, finalista2, campeonOk].filter(Boolean).length
+  return {
+    finalista1,
+    finalista2,
+    campeon: campeonOk,
+    completo: finalista1 && finalista2 && campeonOk,
+    pct: progressPct(campos, 3),
+  }
+}
+
+export function progresoGlobalCampeon(campeones, participanteIds) {
+  const nUsers = participanteIds.length
+  if (!nUsers) return { finalista1: 0, finalista2: 0, campeon: 0, pct: 0, nUsers }
+
+  const byId = new Map((campeones || []).map((c) => [c.participante_id, c]))
+  let f1 = 0
+  let f2 = 0
+  let camp = 0
+  for (const id of participanteIds) {
+    const c = byId.get(id)
+    if (c?.finalista_1) f1++
+    if (c?.finalista_2) f2++
+    if (c?.equipo) camp++
+  }
+  const done = f1 + f2 + camp
+  const total = nUsers * 3
+  return {
+    finalista1: progressPct(f1, nUsers),
+    finalista2: progressPct(f2, nUsers),
+    campeon: progressPct(camp, nUsers),
+    pct: progressPct(done, total),
+    f1,
+    f2,
+    camp,
+    nUsers,
+  }
+}
+
+export function formatPredResumen(pr) {
+  if (!prediccionCompleta(pr)) return null
+  let s = `${pr.goles_local}–${pr.goles_visitante}`
+  if (pr.penales) {
+    s += pr.ganador_penales ? ` · pen. ${pr.ganador_penales}` : ' · pen.'
+  }
+  return s
+}
+
+export function listEliminatoriasDetalle(partidosE, predsP, predByPartidoId = null) {
+  const map = predByPartidoId || Object.fromEntries((predsP || []).map((pr) => [pr.partido_id, pr]))
+  const items = []
+
+  for (const meta of FASES_ELIM_PROGRESO) {
+    for (const p of partidosPorFase(partidosE, meta.fase)) {
+      const pr = map[p.id]
+      const completa = prediccionCompleta(pr)
+      items.push({
+        fase: meta.fase,
+        faseLabel: meta.label,
+        partido_id: p.id,
+        ronda: p.ronda,
+        equipo_local: p.equipo_local,
+        equipo_visitante: p.equipo_visitante,
+        completa,
+        empezada: prediccionEmpezada(pr),
+        resumen: formatPredResumen(pr),
+        penales: Boolean(pr?.penales),
+        ganador_penales: pr?.ganador_penales || null,
+        goles_local: pr?.goles_local ?? null,
+        goles_visitante: pr?.goles_visitante ?? null,
+        orden: p.orden ?? 0,
+      })
+    }
+  }
+
+  return items.sort((a, b) => a.orden - b.orden)
+}
+
+export function listEliminatoriasPendientes(partidosE, predsP) {
+  return listEliminatoriasDetalle(partidosE, predsP).filter((x) => !x.completa)
+}

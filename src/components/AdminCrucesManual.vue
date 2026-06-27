@@ -9,6 +9,14 @@ import {
   equiposOpcionesCruceAdmin,
   isPlaceholderEquipo,
 } from '../lib/eliminatorias.js'
+import {
+  sortPartidosCuadro,
+  etiquetaPartidoFifa,
+  fifaMatchNo,
+  FIFA_SLOT_LABELS,
+  BRACKET_POSITION_BY_FIFA,
+  ladoCuadro,
+} from '../lib/fifaBracket2026.js'
 
 const props = defineProps({
   partidos: { type: Array, default: () => [] },
@@ -26,9 +34,10 @@ const editando = reactive({})
 const equipos = computed(() => equiposDisponiblesAdmin(props.partidos))
 
 const partidosFase = computed(() =>
-  props.partidos
-    .filter((p) => p.fase === fase.value)
-    .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+  sortPartidosCuadro(
+    props.partidos.filter((p) => p.fase === fase.value),
+    fase.value
+  )
 )
 
 const r32Completo = computed(() => cuadroR32Completo(props.partidos))
@@ -51,9 +60,24 @@ function mostrarSelect(partido, lado) {
   return !!editando[editKey(partido.id, lado)]
 }
 
-function etiquetaPartido(p, idx) {
-  if (p.ronda) return p.ronda
-  return `Partido ${idx + 1}`
+function etiquetaPartido(p) {
+  return etiquetaPartidoFifa(p) || p.ronda || 'Partido'
+}
+
+function slotEsperado(p, lado) {
+  const no = fifaMatchNo(p)
+  const slot = no ? FIFA_SLOT_LABELS[no] : null
+  if (!slot) return null
+  return lado === 'local' ? slot.local : slot.visitante
+}
+
+function mitadPartido(p, idx) {
+  const total = Object.keys(BRACKET_POSITION_BY_FIFA[fase.value] || {}).length
+  const pos = p.bracket_pos ?? idx + 1
+  const lado = ladoCuadro(fase.value, pos, total)
+  if (lado === 'izq') return 'Mitad izquierda'
+  if (lado === 'der') return 'Mitad derecha'
+  return null
 }
 
 async function cambiarEquipo(partido, lado, raw) {
@@ -84,9 +108,9 @@ async function cambiarEquipo(partido, lado, raw) {
     <div class="panel-card-header">Armar cruces a mano</div>
     <div class="panel-card-body">
       <p class="admin-cruces-intro">
-        Completá solo los lados que faltan; los confirmados se ven en verde («Cambiar» para editar).
-        Cada desplegable muestra equipos libres en esa fase: no aparecen los ya usados en otro
-        cruce ni el rival del mismo partido.
+        Orden igual al cuadro de Promiedos (M73–M104). Cada fila muestra el slot FIFA
+        (ej. <strong>2A vs 2B</strong>) aunque falten equipos. Completá solo los lados
+        pendientes; los confirmados se ven en verde («Cambiar» para editar).
       </p>
 
       <label class="form-label">Fase</label>
@@ -114,7 +138,10 @@ async function cambiarEquipo(partido, lado, raw) {
           <div v-for="(p, idx) in partidosFase" :key="p.id" class="admin-cruces-item">
             <div class="admin-cruces-meta">
               <span class="admin-cruces-idx">#{{ idx + 1 }}</span>
-              <span class="admin-cruces-ronda">{{ etiquetaPartido(p, idx) }}</span>
+              <span class="admin-cruces-ronda">{{ etiquetaPartido(p) }}</span>
+              <span v-if="mitadPartido(p, idx)" class="admin-cruces-mitad">
+                {{ mitadPartido(p, idx) }}
+              </span>
               <span v-if="p.fecha" class="admin-cruces-fecha">
                 {{ p.fecha.slice(0, 16).replace('T', ' ') }}
               </span>
@@ -123,6 +150,9 @@ async function cambiarEquipo(partido, lado, raw) {
             <div class="admin-cruces-fila">
               <!-- Local -->
               <div class="admin-cruces-lado">
+                <span v-if="slotEsperado(p, 'local')" class="admin-cruces-slot">
+                  Slot: {{ slotEsperado(p, 'local') }}
+                </span>
                 <template v-if="!mostrarSelect(p, 'local')">
                   <span class="admin-cruces-badge">{{ p.equipo_local }}</span>
                   <button
@@ -152,6 +182,9 @@ async function cambiarEquipo(partido, lado, raw) {
 
               <!-- Visitante -->
               <div class="admin-cruces-lado">
+                <span v-if="slotEsperado(p, 'visitante')" class="admin-cruces-slot">
+                  Slot: {{ slotEsperado(p, 'visitante') }}
+                </span>
                 <template v-if="!mostrarSelect(p, 'visitante')">
                   <span class="admin-cruces-badge">{{ p.equipo_visitante }}</span>
                   <button

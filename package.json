@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node src/lib/scoring.test.js && node src/lib/eliminatorias.test.js"
+    "test": "node src/lib/scoring.test.js && node src/lib/eliminatorias.test.js && node src/lib/fifaBracket2026.test.js && node src/lib/teamCrestAliases.test.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.107.0",

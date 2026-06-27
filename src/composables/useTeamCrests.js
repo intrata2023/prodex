@@ -1,13 +1,20 @@
 import { ref } from 'vue'
 import { fetchWorldCupMatches } from '../lib/syncResults.js'
+import { isPlaceholderEquipo } from '../lib/eliminatorias.js'
+import {
+  normTeamCrestKey,
+  apiTeamNameForCrest,
+  TEAM_CREST_ALIASES,
+} from '../lib/teamCrestAliases.js'
 
 const crestByExternalId = ref(null)
 const crestByTeam = ref(null)
 const crestsLoaded = ref(false)
 let loadPromise = null
 
-function norm(name) {
-  return (name || '').toLowerCase().trim()
+function registerCrest(byTeam, name, crest) {
+  if (!name || !crest) return
+  byTeam.set(normTeamCrestKey(name), crest)
 }
 
 function buildMaps(matches) {
@@ -21,12 +28,15 @@ function buildMaps(matches) {
         visitante: m.awayTeam?.crest || null,
       })
     }
-    if (m.homeTeam?.name && m.homeTeam?.crest) {
-      byTeam.set(norm(m.homeTeam.name), m.homeTeam.crest)
-    }
-    if (m.awayTeam?.name && m.awayTeam?.crest) {
-      byTeam.set(norm(m.awayTeam.name), m.awayTeam.crest)
-    }
+    registerCrest(byTeam, m.homeTeam?.name, m.homeTeam?.crest)
+    registerCrest(byTeam, m.homeTeam?.shortName, m.homeTeam?.crest)
+    registerCrest(byTeam, m.awayTeam?.name, m.awayTeam?.crest)
+    registerCrest(byTeam, m.awayTeam?.shortName, m.awayTeam?.crest)
+  }
+
+  for (const [alias, apiName] of Object.entries(TEAM_CREST_ALIASES)) {
+    const crest = byTeam.get(normTeamCrestKey(apiName))
+    if (crest) registerCrest(byTeam, alias, crest)
   }
 
   return { byId, byTeam }
@@ -53,14 +63,17 @@ export function useTeamCrests() {
     await loadPromise
   }
 
-  function crestsForPartido(partido) {
-    if (partido.external_id && crestByExternalId.value?.has(partido.external_id)) {
-      return crestByExternalId.value.get(partido.external_id)
+  function lookupTeamCrest(nombre) {
+    if (!nombre || isPlaceholderEquipo(nombre)) return null
+
+    const direct = crestByTeam.value?.get(normTeamCrestKey(nombre))
+    if (direct) return direct
+
+    const apiName = apiTeamNameForCrest(nombre)
+    if (apiName !== nombre) {
+      return crestByTeam.value?.get(normTeamCrestKey(apiName)) || null
     }
-    return {
-      local: crestForTeam(partido.equipo_local, partido),
-      visitante: crestForTeam(partido.equipo_visitante, partido),
-    }
+    return null
   }
 
   function crestForTeam(nombre, partido = null) {
@@ -70,7 +83,24 @@ export function useTeamCrests() {
         return partido.escudo_visitante
       }
     }
-    return crestByTeam.value?.get(norm(nombre)) || null
+    return lookupTeamCrest(nombre)
+  }
+
+  function crestsForPartido(partido) {
+    let local = crestForTeam(partido.equipo_local, partido)
+    let visitante = crestForTeam(partido.equipo_visitante, partido)
+
+    if (partido.external_id && crestByExternalId.value?.has(partido.external_id)) {
+      const fromApi = crestByExternalId.value.get(partido.external_id)
+      if (!local && fromApi.local && !isPlaceholderEquipo(partido.equipo_local)) {
+        local = fromApi.local
+      }
+      if (!visitante && fromApi.visitante && !isPlaceholderEquipo(partido.equipo_visitante)) {
+        visitante = fromApi.visitante
+      }
+    }
+
+    return { local, visitante }
   }
 
   return { load, crestsForPartido, crestForTeam, crestsLoaded }

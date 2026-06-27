@@ -1,3 +1,5 @@
+import { sortPartidosCuadro } from './fifaBracket2026.js'
+
 export const MS_UNA_HORA = 60 * 60 * 1000
 export const R32_PARTIDOS = 16
 export const R32_POR_MITAD = 8
@@ -9,6 +11,10 @@ export function isPlaceholderEquipo(name) {
   const raw = String(name).trim()
   const n = raw.toLowerCase()
   if (n === 'tbd' || n === 'por definir') return true
+  if (/^ganador del partido \d+$/i.test(raw)) return true
+  if (/^[12][a-l]$/i.test(raw)) return true
+  if (/^1[a-l]$/i.test(raw)) return true
+  if (/^3[a-l0-9/]+$/i.test(raw) && raw.includes('/')) return true
   return (
     n.includes('por definir') ||
     n.includes('· local') ||
@@ -33,10 +39,10 @@ export function cruceEliminatoriaCompleto(partido) {
 }
 
 export function partidosR32(partidos) {
-  return [...(partidos || [])]
-    .filter((p) => p.fase === 'r32')
-    .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
-    .slice(0, R32_PARTIDOS)
+  return sortPartidosCuadro(
+    (partidos || []).filter((p) => p.fase === 'r32'),
+    'r32'
+  ).slice(0, R32_PARTIDOS)
 }
 
 /** Los 16 cruces de 16avos tienen equipos reales en ambos lados. */

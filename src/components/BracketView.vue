@@ -1,6 +1,8 @@
 <script setup>
 import { computed, onMounted } from 'vue'
 import { useTeamCrests } from '../composables/useTeamCrests.js'
+import { sortPartidosCuadro, fifaMatchNo } from '../lib/fifaBracket2026.js'
+import { isPlaceholderEquipo } from '../lib/eliminatorias.js'
 
 const RONDAS = [
   { fase: 'r32', label: '16avos', slots: 16 },
@@ -57,9 +59,12 @@ function slotLeft(roundIdx) {
 const columnas = computed(() => {
   crestsLoaded.value
   return RONDAS.map((r, roundIdx) => {
-    const realMatches = props.partidos
-      .filter((p) => p.fase === r.fase && !p.ronda?.toLowerCase().includes('tercer'))
-      .sort((a, b) => a.orden - b.orden)
+    const realMatches = sortPartidosCuadro(
+      props.partidos.filter(
+        (p) => p.fase === r.fase && !p.ronda?.toLowerCase().includes('tercer')
+      ),
+      r.fase
+    )
 
     const matches = Array.from({ length: r.slots }, (_, matchIdx) => {
       const partido = realMatches[matchIdx] || placeholderPartido(r.fase, matchIdx)
@@ -120,7 +125,12 @@ function pasaPorPenales(pred, partido, side) {
 }
 
 function isPlaceholder(name) {
-  return name?.includes('Por definir') || name?.includes('Local') || name?.includes('Visitante')
+  return isPlaceholderEquipo(name)
+}
+
+function matchLabel(partido) {
+  const no = fifaMatchNo(partido)
+  return no ? `M${no}` : null
 }
 
 function shortName(name) {
@@ -179,6 +189,9 @@ function shortName(name) {
             }"
             :style="{ top: `${item.top}px`, left: `${item.left}px`, width: `${COL_W}px`, height: `${SLOT_H}px` }"
           >
+            <span v-if="matchLabel(item.partido)" class="bracket-match-no">
+              {{ matchLabel(item.partido) }}
+            </span>
             <div
               class="bracket-team"
               :class="{ 'bracket-team--tbd': isPlaceholder(item.partido.equipo_local) }"

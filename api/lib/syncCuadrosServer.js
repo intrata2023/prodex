@@ -1,4 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
+import {
+  enrichPartidoBracketMeta,
+} from '../../src/lib/fifaBracket2026.js'
 
 const FOOTBALL_DATA_WC_URL =
   'https://api.football-data.org/v4/competitions/WC/matches?season=2026'
@@ -131,11 +134,6 @@ export async function verifyAdminPin(supabase, pin) {
 }
 
 export async function syncEliminatoriasCuadros(supabase, adminPin, matches) {
-  const partidos = mapKnockoutPartidos(matches)
-  if (!partidos.length) {
-    throw new Error('La API no devolvió partidos de eliminatorias')
-  }
-
   const { data: maxGrupos } = await supabase
     .from('partidos')
     .select('orden')
@@ -143,6 +141,14 @@ export async function syncEliminatoriasCuadros(supabase, adminPin, matches) {
     .order('orden', { ascending: false })
     .limit(1)
     .maybeSingle()
+
+  const baseGruposOrden = maxGrupos?.orden ?? 72
+  const partidos = mapKnockoutPartidos(matches).map((p) =>
+    enrichPartidoBracketMeta(p, baseGruposOrden)
+  )
+  if (!partidos.length) {
+    throw new Error('La API no devolvió partidos de eliminatorias')
+  }
 
   const { data: existentes } = await supabase
     .from('partidos')
@@ -188,6 +194,7 @@ export async function syncEliminatoriasCuadros(supabase, adminPin, matches) {
       equipo_visitante,
       external_id: externalId,
       fecha: row.fecha,
+      ...(row.orden != null ? { orden: row.orden } : {}),
     }
 
     guardados.push({ equipo_local, equipo_visitante })
@@ -205,7 +212,7 @@ export async function syncEliminatoriasCuadros(supabase, adminPin, matches) {
 
     const { error } = await supabase.rpc('admin_insert_partido', {
       p_admin_pin: adminPin,
-      p_payload: { ...payload, orden: nextOrden++ },
+      p_payload: { ...payload, orden: row.orden ?? nextOrden++ },
     })
     if (error) throw error
     inserted++

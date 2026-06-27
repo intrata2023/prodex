@@ -1,4 +1,5 @@
 import { isPlaceholderEquipo } from './eliminatorias.js'
+import { enrichPartidoBracketMeta } from './fifaBracket2026.js'
 
 const FASE_BY_STAGE = {
   GROUP_STAGE: 'grupos',
@@ -84,9 +85,11 @@ export function mapApiMatchesToPartidos(matches) {
 }
 
 /** Solo eliminatorias (16avos → final), sin fase de grupos ni tercer puesto. */
-export function mapApiMatchesToEliminatorias(matches) {
+export function mapApiMatchesToEliminatorias(matches, baseGruposOrden = 72) {
   const knockout = (matches || []).filter((m) => KNOCKOUT_API_STAGES.has(m.stage))
-  return mapApiMatchesToPartidos(knockout)
+  return mapApiMatchesToPartidos(knockout).map((p) =>
+    enrichPartidoBracketMeta(p, baseGruposOrden)
+  )
 }
 
 function stripEscudos(partido) {
@@ -148,11 +151,6 @@ export async function importWorldCupFixture(supabase, adminPin) {
  * Usado por el cliente y por el cron de Vercel.
  */
 export async function importWorldCupEliminatoriasFromMatches(supabase, adminPin, matches) {
-  const partidos = mapApiMatchesToEliminatorias(matches)
-  if (!partidos.length) {
-    throw new Error('La API no devolvió partidos de eliminatorias')
-  }
-
   const { data: maxGrupos } = await supabase
     .from('partidos')
     .select('orden')
@@ -160,6 +158,12 @@ export async function importWorldCupEliminatoriasFromMatches(supabase, adminPin,
     .order('orden', { ascending: false })
     .limit(1)
     .maybeSingle()
+
+  const baseGruposOrden = maxGrupos?.orden ?? 72
+  const partidos = mapApiMatchesToEliminatorias(matches, baseGruposOrden)
+  if (!partidos.length) {
+    throw new Error('La API no devolvió partidos de eliminatorias')
+  }
 
   const { data: existentes } = await supabase
     .from('partidos')
@@ -205,6 +209,7 @@ export async function importWorldCupEliminatoriasFromMatches(supabase, adminPin,
       equipo_visitante,
       external_id: externalId,
       fecha: row.fecha,
+      ...(row.orden != null ? { orden: row.orden } : {}),
     })
 
     guardados.push({ equipo_local, equipo_visitante })
@@ -221,7 +226,7 @@ export async function importWorldCupEliminatoriasFromMatches(supabase, adminPin,
 
     const { error } = await supabase.rpc('admin_insert_partido', {
       p_admin_pin: adminPin,
-      p_payload: { ...payload, orden: nextOrden++ },
+      p_payload: { ...payload, orden: row.orden ?? nextOrden++ },
     })
     if (error) throw error
     inserted++

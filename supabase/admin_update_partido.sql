@@ -30,6 +30,10 @@ BEGIN
     fecha = CASE
       WHEN p_payload ? 'fecha' THEN NULLIF(p_payload->>'fecha', '')::TIMESTAMPTZ
       ELSE fecha
+    END,
+    orden = CASE
+      WHEN p_payload ? 'orden' THEN NULLIF(p_payload->>'orden', '')::INT
+      ELSE orden
     END
   WHERE id = p_partido_id;
 
