@@ -5,6 +5,8 @@ import {
   normTeamCrestKey,
   apiTeamNameForCrest,
   TEAM_CREST_ALIASES,
+  TEAM_STATIC_CRESTS,
+  staticCrestForTeam,
 } from '../lib/teamCrestAliases.js'
 
 const crestByExternalId = ref(null)
@@ -17,9 +19,21 @@ function registerCrest(byTeam, name, crest) {
   byTeam.set(normTeamCrestKey(name), crest)
 }
 
+function seedStaticCrests(byTeam) {
+  for (const [apiKey, url] of Object.entries(TEAM_STATIC_CRESTS)) {
+    registerCrest(byTeam, apiKey, url)
+  }
+  for (const [alias, apiName] of Object.entries(TEAM_CREST_ALIASES)) {
+    const url = TEAM_STATIC_CRESTS[normTeamCrestKey(apiName)]
+    if (url) registerCrest(byTeam, alias, url)
+  }
+}
+
 function buildMaps(matches) {
   const byId = new Map()
   const byTeam = new Map()
+
+  seedStaticCrests(byTeam)
 
   for (const m of matches) {
     if (m.id) {
@@ -44,7 +58,7 @@ function buildMaps(matches) {
 
 export function useTeamCrests() {
   async function load() {
-    if (crestByExternalId.value) return
+    if (crestsLoaded.value) return
     if (!loadPromise) {
       loadPromise = (async () => {
         try {
@@ -54,7 +68,9 @@ export function useTeamCrests() {
           crestByTeam.value = byTeam
         } catch {
           crestByExternalId.value = new Map()
-          crestByTeam.value = new Map()
+          const fallback = new Map()
+          seedStaticCrests(fallback)
+          crestByTeam.value = fallback
         }
         crestsLoaded.value = true
         loadPromise = null
@@ -71,9 +87,10 @@ export function useTeamCrests() {
 
     const apiName = apiTeamNameForCrest(nombre)
     if (apiName !== nombre) {
-      return crestByTeam.value?.get(normTeamCrestKey(apiName)) || null
+      const fromAlias = crestByTeam.value?.get(normTeamCrestKey(apiName))
+      if (fromAlias) return fromAlias
     }
-    return null
+    return staticCrestForTeam(nombre)
   }
 
   function crestForTeam(nombre, partido = null) {

@@ -1,3 +1,55 @@
+/** Escudos estáticos (football-data.org) — fallback si /api/wc-matches falla o tarda. */
+export const TEAM_STATIC_CRESTS = {
+  algeria: 'https://crests.football-data.org/algeria.svg',
+  argentina: 'https://crests.football-data.org/762.png',
+  australia: 'https://crests.football-data.org/779.svg',
+  austria: 'https://crests.football-data.org/816.svg',
+  belgium: 'https://crests.football-data.org/805.svg',
+  'bosnia-herzegovina': 'https://crests.football-data.org/bosnia.svg',
+  brazil: 'https://crests.football-data.org/764.svg',
+  canada: 'https://crests.football-data.org/canada.svg',
+  'cape verde islands': 'https://crests.football-data.org/cape_verde.svg',
+  colombia: 'https://crests.football-data.org/818.svg',
+  'congo dr': 'https://crests.football-data.org/congo_dr.svg',
+  croatia: 'https://crests.football-data.org/799.svg',
+  curacao: 'https://crests.football-data.org/curacao.svg',
+  czechia: 'https://crests.football-data.org/798.svg',
+  ecuador: 'https://crests.football-data.org/791.svg',
+  egypt: 'https://crests.football-data.org/825.svg',
+  england: 'https://crests.football-data.org/770.svg',
+  france: 'https://crests.football-data.org/773.svg',
+  germany: 'https://crests.football-data.org/759.svg',
+  ghana: 'https://crests.football-data.org/ghana.svg',
+  haiti: 'https://crests.football-data.org/haiti.svg',
+  iran: 'https://crests.football-data.org/iran.svg',
+  iraq: 'https://crests.football-data.org/iraq.svg',
+  'ivory coast': 'https://crests.football-data.org/787.svg',
+  japan: 'https://crests.football-data.org/766.svg',
+  jordan: 'https://crests.football-data.org/8049.png',
+  mexico: 'https://crests.football-data.org/769.svg',
+  morocco: 'https://crests.football-data.org/morocco.svg',
+  netherlands: 'https://crests.football-data.org/8601.svg',
+  'new zealand': 'https://crests.football-data.org/783.svg',
+  norway: 'https://crests.football-data.org/813.svg',
+  panama: 'https://crests.football-data.org/panama.svg',
+  paraguay: 'https://crests.football-data.org/761.svg',
+  portugal: 'https://crests.football-data.org/765.svg',
+  qatar: 'https://crests.football-data.org/8030.svg',
+  'saudi arabia': 'https://crests.football-data.org/saudi_arabia.svg',
+  scotland: 'https://crests.football-data.org/814.svg',
+  senegal: 'https://crests.football-data.org/senegal.svg',
+  'south africa': 'https://crests.football-data.org/9396.svg',
+  'south korea': 'https://crests.football-data.org/772.png',
+  spain: 'https://crests.football-data.org/760.svg',
+  sweden: 'https://crests.football-data.org/792.svg',
+  switzerland: 'https://crests.football-data.org/788.svg',
+  tunisia: 'https://crests.football-data.org/tunisia.svg',
+  turkey: 'https://crests.football-data.org/803.svg',
+  'united states': 'https://crests.football-data.org/usa.svg',
+  uruguay: 'https://crests.football-data.org/758.svg',
+  uzbekistan: 'https://crests.football-data.org/8070.png',
+}
+
 /** Nombres en PRODEX (español) → nombre en football-data.org para buscar escudo. */
 export const TEAM_CREST_ALIASES = {
   sudafrica: 'South Africa',
@@ -115,4 +167,11 @@ export function normTeamCrestKey(name) {
 export function apiTeamNameForCrest(displayName) {
   const key = normTeamCrestKey(displayName)
   return TEAM_CREST_ALIASES[key] || displayName
+}
+
+export function staticCrestForTeam(displayName) {
+  const key = normTeamCrestKey(displayName)
+  if (TEAM_STATIC_CRESTS[key]) return TEAM_STATIC_CRESTS[key]
+  const apiName = apiTeamNameForCrest(displayName)
+  return TEAM_STATIC_CRESTS[normTeamCrestKey(apiName)] || null
 }

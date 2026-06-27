@@ -2909,6 +2909,69 @@ a.home-tile:active {
   margin-bottom: 0;
 }
 
+.progress-apurar {
+  padding: 0.85rem 1rem;
+  background: rgba(248, 113, 113, 0.06);
+  border: 1px solid rgba(248, 113, 113, 0.25);
+  border-radius: 0.5rem;
+}
+
+.progress-apurar-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.progress-apurar-actions {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.progress-apurar-lista {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 0.8125rem;
+}
+
+.progress-apurar-lista li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.progress-apurar-nombre {
+  font-weight: 700;
+  min-width: 6rem;
+}
+
+.progress-apurar-faltas {
+  color: #f87171;
+  flex: 1;
+}
+
+.progress-apurar-pct {
+  color: var(--text-muted, #888);
+  font-size: 0.75rem;
+}
+
+.progress-apurar-ok {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: #4ade80;
+}
+
+.progress-apurar-aviso {
+  margin: 0 0 0.35rem;
+  font-size: 0.75rem;
+  color: var(--accent);
+}
+
 .btn-icon {
   min-width: var(--touch);
   min-height: var(--touch);

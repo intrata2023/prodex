@@ -25,8 +25,9 @@ const duplicadosDb = ref([])
 const partidosE = ref([])
 const participanteIds = ref([])
 const ordenPor = ref('pendientes')
-const filtro = ref('todos')
+const filtro = ref('pendientes-elim')
 const expandido = ref(null)
+const avisoCopiado = ref('')
 
 const resumenGlobal = computed(() => {
   const ids = participanteIds.value
@@ -49,6 +50,37 @@ const resumenGlobal = computed(() => {
     campeon: progresoGlobalCampeon(campeones, ids),
   }
 })
+
+const listaApurar = computed(() =>
+  filas.value
+    .filter((f) => f.pendientesElim.length > 0 || !f.campeonStatus.completo)
+    .map((f) => {
+      const faltas = []
+      if (f.pendientesElim.length) faltas.push(`${f.pendientesElim.length} elim.`)
+      if (!f.campeonStatus.finalista1) faltas.push('F1')
+      if (!f.campeonStatus.finalista2) faltas.push('F2')
+      if (!f.campeonStatus.campeon) faltas.push('campeón')
+      return { nombre: f.nombre, faltas: faltas.join(', '), pct16: f.fases.r32.pct }
+    })
+    .sort((a, b) => a.pct16 - b.pct16 || a.nombre.localeCompare(b.nombre, 'es'))
+)
+
+const textoListaApurar = computed(() => {
+  if (!listaApurar.value.length) return 'Todos tienen eliminatorias y final/campeón completos.'
+  return listaApurar.value.map((x) => `• ${x.nombre} — falta: ${x.faltas}`).join('\n')
+})
+
+async function copiarListaApurar() {
+  try {
+    await navigator.clipboard.writeText(textoListaApurar.value)
+    avisoCopiado.value = 'Listado copiado.'
+  } catch {
+    avisoCopiado.value = 'No se pudo copiar (permiso del navegador).'
+  }
+  setTimeout(() => {
+    avisoCopiado.value = ''
+  }, 2500)
+}
 
 const filasFiltradas = computed(() => {
   let list = [...filasOrdenadas.value]
@@ -231,8 +263,35 @@ defineExpose({ cargar })
   <div class="admin-progress">
     <h3 class="section-title">Progreso de participantes</h3>
     <p class="text-muted small mb-3">
-      Porcentaje de carga por fase. Expandí un participante para ver resultado, penales y pendientes.
+      % por fase (16avos, octavos…), finalistas (F1/F2) y campeón (🏆). Expandí «Ver detalle» para
+      ver resultado y si marcó penales en cada cruce.
     </p>
+
+    <div v-if="filas.length" class="progress-apurar mb-4">
+      <div class="progress-apurar-head">
+        <strong>Para apurar ({{ listaApurar.length }})</strong>
+        <div class="progress-apurar-actions">
+          <button type="button" class="admin-progress-toggle" @click="cargar">Actualizar</button>
+          <button
+            type="button"
+            class="admin-progress-toggle"
+            :disabled="!listaApurar.length"
+            @click="copiarListaApurar"
+          >
+            Copiar listado
+          </button>
+        </div>
+      </div>
+      <p v-if="avisoCopiado" class="progress-apurar-aviso">{{ avisoCopiado }}</p>
+      <ul v-if="listaApurar.length" class="progress-apurar-lista">
+        <li v-for="p in listaApurar" :key="p.nombre">
+          <span class="progress-apurar-nombre">{{ p.nombre }}</span>
+          <span class="progress-apurar-faltas">{{ p.faltas }}</span>
+          <span class="progress-apurar-pct">16av {{ p.pct16 }}%</span>
+        </li>
+      </ul>
+      <p v-else class="progress-apurar-ok">Nadie pendiente en eliminatorias ni final/campeón.</p>
+    </div>
 
     <div v-if="duplicadosDb.length" class="alert alert-warning py-2 mb-3">
       <strong>Partidos duplicados en la base ({{ duplicadosDb.length }}):</strong>
