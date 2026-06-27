@@ -12,7 +12,7 @@
   "crons": [
     {
       "path": "/api/sync-cuadros",
-      "schedule": "0 * * * *"
+      "schedule": "0 12 * * *"
     }
   ]
 }

@@ -183,7 +183,7 @@ defineExpose({ cargar })
       {{ importandoCuadros ? 'Trayendo cuadros…' : 'Traer cuadros (eliminatorias)' }}
     </button>
     <p class="text-muted small mb-3">
-      Se sincroniza solo al entrar al admin y cada hora en el servidor. También podés forzar
+      Se sincroniza al entrar al admin y una vez por día en el servidor. También podés forzar
       con el botón. Solo actualiza 16avos en adelante; la fase de grupos no se toca.
     </p>
 
