@@ -18,13 +18,14 @@ import {
   statusCampeon,
   listEliminatoriasDetalle,
   listEliminatoriasPendientes,
+  agruparDetalleElimPorFase,
 } from '../lib/participantProgress.js'
 
 const filas = ref([])
 const duplicadosDb = ref([])
 const partidosE = ref([])
 const participanteIds = ref([])
-const ordenPor = ref('pendientes')
+const ordenPor = ref('pendientes-elim')
 const filtro = ref('pendientes-elim')
 const expandido = ref(null)
 const avisoCopiado = ref('')
@@ -57,8 +58,8 @@ const listaApurar = computed(() =>
     .map((f) => {
       const faltas = []
       if (f.pendientesElim.length) faltas.push(`${f.pendientesElim.length} elim.`)
-      if (!f.campeonStatus.finalista1) faltas.push('F1')
-      if (!f.campeonStatus.finalista2) faltas.push('F2')
+      if (!f.campeonStatus.finalista1) faltas.push('finalista 1')
+      if (!f.campeonStatus.finalista2) faltas.push('finalista 2')
       if (!f.campeonStatus.campeon) faltas.push('campeón')
       return { nombre: f.nombre, faltas: faltas.join(', '), pct16: f.fases.r32.pct }
     })
@@ -125,8 +126,8 @@ const filasOrdenadas = computed(() => {
   }
 })
 
-function toggleExpand(nombre) {
-  expandido.value = expandido.value === nombre ? null : nombre
+function toggleExpand(id) {
+  expandido.value = expandido.value === id ? null : id
 }
 
 function estadoPartido(item) {
@@ -138,6 +139,21 @@ function pctClass(pct) {
   if (pct >= 100) return 'progress-pct--ok'
   if (pct >= 50) return 'progress-pct--mid'
   return 'progress-pct--low'
+}
+
+function faseCellClass(faseStat) {
+  if (!faseStat.total) return 'progress-elim-fase--na'
+  if (faseStat.pct >= 100) return 'progress-elim-fase--ok'
+  if (faseStat.done > 0) return 'progress-elim-fase--mid'
+  return 'progress-elim-fase--empty'
+}
+
+function equipoCellClass(cargado) {
+  return cargado ? 'progress-elim-equipo--ok' : 'progress-elim-equipo--pend'
+}
+
+function barWidth(pct) {
+  return `${Math.min(100, Math.max(0, pct))}%`
 }
 
 async function cargar() {
@@ -218,6 +234,7 @@ async function cargar() {
     const partidosPendientes = listPartidosPendientes(partidosG, predsP)
     const pendientesElim = listEliminatoriasPendientes(partidosE.value, predsP)
     const detalleElim = listEliminatoriasDetalle(partidosE.value, predsP)
+    const detallePorFase = agruparDetalleElimPorFase(detalleElim)
 
     const fases = {}
     for (const meta of FASES_ELIM_PROGRESO) {
@@ -243,14 +260,11 @@ async function cargar() {
       partidosPendientes,
       pendientesElim,
       detalleElim,
+      detallePorFase,
       fases,
       campeonStatus,
       campeonRaw: camp,
       predsRaw: predsP,
-      finalistasTxt: camp
-        ? [camp.finalista_1, camp.finalista_2].filter(Boolean).join(' · ') || '—'
-        : '—',
-      campeonTxt: camp?.equipo || '—',
     }
   })
 }
@@ -261,26 +275,28 @@ defineExpose({ cargar })
 
 <template>
   <div class="admin-progress">
-    <h3 class="section-title">Progreso de participantes</h3>
-    <p class="text-muted small mb-3">
-      % por fase (16avos, octavos…), finalistas (F1/F2) y campeón (🏆). Expandí «Ver detalle» para
-      ver resultado y si marcó penales en cada cruce.
-    </p>
+    <div class="progress-header">
+      <div>
+        <h3 class="section-title">Progreso de participantes</h3>
+        <p class="text-muted small mb-0">
+          Carga de eliminatorias por fase, finalistas y campeón. Expandí una fila para ver cada
+          cruce.
+        </p>
+      </div>
+      <button type="button" class="admin-progress-toggle" @click="cargar">Actualizar</button>
+    </div>
 
     <div v-if="filas.length" class="progress-apurar mb-4">
       <div class="progress-apurar-head">
         <strong>Para apurar ({{ listaApurar.length }})</strong>
-        <div class="progress-apurar-actions">
-          <button type="button" class="admin-progress-toggle" @click="cargar">Actualizar</button>
-          <button
-            type="button"
-            class="admin-progress-toggle"
-            :disabled="!listaApurar.length"
-            @click="copiarListaApurar"
-          >
-            Copiar listado
-          </button>
-        </div>
+        <button
+          type="button"
+          class="admin-progress-toggle"
+          :disabled="!listaApurar.length"
+          @click="copiarListaApurar"
+        >
+          Copiar listado
+        </button>
       </div>
       <p v-if="avisoCopiado" class="progress-apurar-aviso">{{ avisoCopiado }}</p>
       <ul v-if="listaApurar.length" class="progress-apurar-lista">
@@ -298,7 +314,6 @@ defineExpose({ cargar })
       revisá Admin → Partidos.
     </div>
 
-    <!-- Resumen global -->
     <div v-if="filas.length" class="progress-resumen-global mb-4">
       <div class="progress-resumen-title">Carga total del grupo</div>
       <div class="progress-resumen-grid">
@@ -330,8 +345,8 @@ defineExpose({ cargar })
       <div class="progress-sort">
         <label class="progress-sort-label" for="progress-sort">Ordenar</label>
         <select id="progress-sort" v-model="ordenPor" class="form-select">
-          <option value="pendientes">Más grupos pendientes</option>
           <option value="pendientes-elim">Más eliminatorias pendientes</option>
+          <option value="pendientes">Más grupos pendientes</option>
           <option value="pct16-desc">% 16avos (mayor → menor)</option>
           <option value="pct16-asc">% 16avos (menor → mayor)</option>
           <option value="nombre">Nombre (A → Z)</option>
@@ -349,130 +364,191 @@ defineExpose({ cargar })
       </div>
     </div>
 
-    <div class="admin-list">
-      <div v-for="f in filasFiltradas" :key="f.id" class="admin-list-item admin-progress-item">
-        <div class="admin-list-item-top admin-progress-head">
-          <strong>{{ f.nombre }}</strong>
-          <button
-            type="button"
-            class="admin-progress-toggle"
-            @click="toggleExpand(f.nombre)"
-          >
-            {{ expandido === f.nombre ? 'Ocultar' : 'Ver detalle' }}
-          </button>
-        </div>
-
-        <div class="progress-row progress-row--grupos">
-          <div class="progress-chip">
-            <span class="progress-label">Grupos</span>
-            <span class="badge bg-primary">{{ f.grupos }}</span>
-            <span class="progress-pct" :class="pctClass(f.pctG)">{{ f.pctG }}%</span>
-            <span class="progress-fraction">{{ f.doneG }}/{{ f.totalG }}</span>
-          </div>
-        </div>
-
-        <div class="progress-fases-row">
-          <div
-            v-for="meta in FASES_ELIM_PROGRESO"
-            :key="meta.fase"
-            class="progress-fase-chip"
-            :title="`${meta.label}: ${f.fases[meta.fase].done}/${f.fases[meta.fase].total}`"
-          >
-            <span class="progress-fase-name">{{ meta.short }}</span>
-            <span class="progress-pct" :class="pctClass(f.fases[meta.fase].pct)">
-              {{ f.fases[meta.fase].pct }}%
-            </span>
-          </div>
-        </div>
-
-        <div class="progress-campeon-row">
-          <span
-            class="progress-campeon-badge"
-            :class="{ 'progress-campeon-badge--ok': f.campeonStatus.finalista1 }"
-          >
-            F1 {{ f.campeonStatus.finalista1 ? '✓' : '—' }}
-          </span>
-          <span
-            class="progress-campeon-badge"
-            :class="{ 'progress-campeon-badge--ok': f.campeonStatus.finalista2 }"
-          >
-            F2 {{ f.campeonStatus.finalista2 ? '✓' : '—' }}
-          </span>
-          <span
-            class="progress-campeon-badge"
-            :class="{ 'progress-campeon-badge--ok': f.campeonStatus.campeon }"
-          >
-            🏆 {{ f.campeonStatus.campeon ? '✓' : '—' }}
-          </span>
-          <span v-if="f.campeonStatus.completo" class="progress-campeon-txt">
-            {{ f.finalistasTxt }} → {{ f.campeonTxt }}
-          </span>
-          <span v-else class="progress-campeon-txt progress-campeon-txt--pend">
-            {{ f.pendientesElim.length }} elim. pendiente{{ f.pendientesElim.length === 1 ? '' : 's' }}
-          </span>
-        </div>
-
-        <!-- Detalle expandible -->
-        <div v-if="expandido === f.nombre" class="progress-detalle">
-          <div v-if="f.campeonRaw" class="progress-detalle-campeon">
-            <strong>Final:</strong>
-            {{ f.finalistasTxt }}
-            <span v-if="f.campeonTxt !== '—'">— Campeón: {{ f.campeonTxt }}</span>
-          </div>
-          <div v-else class="progress-detalle-campeon progress-detalle-campeon--empty">
-            Sin finalistas ni campeón cargado
-          </div>
-
-          <div class="progress-detalle-table-wrap">
-            <table class="progress-detalle-table">
-              <thead>
-                <tr>
-                  <th>Fase</th>
-                  <th>Partido</th>
-                  <th>Predicción</th>
-                  <th>Penales</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="m in f.detalleElim"
-                  :key="m.partido_id"
-                  :class="{ 'progress-detalle-row--pend': !m.completa }"
-                >
-                  <td>{{ m.faseLabel }}</td>
-                  <td class="progress-detalle-partido">
-                    <span class="progress-detalle-ronda">{{ m.ronda || '—' }}</span>
-                    {{ m.equipo_local }} vs {{ m.equipo_visitante }}
-                  </td>
-                  <td>
-                    <span v-if="m.completa" class="progress-detalle-ok">{{ m.resumen }}</span>
-                    <span v-else-if="m.empezada" class="progress-detalle-warn">Incompleto</span>
-                    <span v-else class="progress-detalle-pend">—</span>
-                  </td>
-                  <td>
-                    <span v-if="m.completa && m.penales" class="progress-detalle-pen">Sí</span>
-                    <span v-else-if="m.completa">No</span>
-                    <span v-else>—</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div v-if="f.partidosPendientes.length" class="progress-partidos-pendientes mt-3">
-            <span class="progress-grupos-label">Grupos pendientes ({{ f.partidosPendientes.length }})</span>
-            <div
-              v-for="m in f.partidosPendientes"
-              :key="m.partido_id"
-              class="progress-partido-item"
+    <div v-if="filasFiltradas.length" class="progress-elim-table-wrap">
+      <table class="progress-elim-table">
+        <thead>
+          <tr>
+            <th class="progress-elim-th-nombre">Participante</th>
+            <th class="progress-elim-th-grupos" title="Grupos">G</th>
+            <th
+              v-for="meta in FASES_ELIM_PROGRESO"
+              :key="meta.fase"
+              class="progress-elim-th-fase"
+              :title="meta.label"
             >
-              <span class="progress-partido-grupo">{{ m.grupo }}</span>
-              <span class="progress-partido-teams">{{ m.equipo_local }} vs {{ m.equipo_visitante }}</span>
-              <span class="progress-partido-estado">{{ estadoPartido(m) }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
+              {{ meta.short }}
+            </th>
+            <th class="progress-elim-th-equipo">Finalista 1</th>
+            <th class="progress-elim-th-equipo">Finalista 2</th>
+            <th class="progress-elim-th-equipo">Campeón</th>
+            <th class="progress-elim-th-accion"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <template v-for="f in filasFiltradas" :key="f.id">
+            <tr
+              class="progress-elim-row"
+              :class="{ 'progress-elim-row--open': expandido === f.id }"
+            >
+              <td class="progress-elim-nombre">
+                <strong>{{ f.nombre }}</strong>
+                <span v-if="f.pendientesElim.length" class="progress-elim-pend-badge">
+                  {{ f.pendientesElim.length }} pend.
+                </span>
+              </td>
+              <td class="progress-elim-grupos" :title="`Grupos ${f.doneG}/${f.totalG}`">
+                <span class="progress-pct" :class="pctClass(f.pctG)">{{ f.pctG }}%</span>
+              </td>
+              <td
+                v-for="meta in FASES_ELIM_PROGRESO"
+                :key="meta.fase"
+                class="progress-elim-fase"
+                :class="faseCellClass(f.fases[meta.fase])"
+                :title="`${meta.label}: ${f.fases[meta.fase].done}/${f.fases[meta.fase].total}`"
+              >
+                <span class="progress-elim-fase-frac">
+                  {{ f.fases[meta.fase].done }}/{{ f.fases[meta.fase].total }}
+                </span>
+                <span class="progress-elim-bar">
+                  <span
+                    class="progress-elim-bar-fill"
+                    :style="{ width: barWidth(f.fases[meta.fase].pct) }"
+                  />
+                </span>
+              </td>
+              <td
+                class="progress-elim-equipo"
+                :class="equipoCellClass(f.campeonStatus.finalista1)"
+              >
+                {{ f.campeonStatus.finalista1Nombre || '—' }}
+              </td>
+              <td
+                class="progress-elim-equipo"
+                :class="equipoCellClass(f.campeonStatus.finalista2)"
+              >
+                {{ f.campeonStatus.finalista2Nombre || '—' }}
+              </td>
+              <td
+                class="progress-elim-equipo progress-elim-equipo--campeon"
+                :class="equipoCellClass(f.campeonStatus.campeon)"
+              >
+                {{ f.campeonStatus.campeonNombre || '—' }}
+              </td>
+              <td class="progress-elim-accion">
+                <button
+                  type="button"
+                  class="admin-progress-toggle"
+                  @click="toggleExpand(f.id)"
+                >
+                  {{ expandido === f.id ? '▲' : '▼' }}
+                </button>
+              </td>
+            </tr>
+
+            <tr v-if="expandido === f.id" class="progress-elim-detail-row">
+              <td :colspan="FASES_ELIM_PROGRESO.length + 6">
+                <div class="progress-elim-detail">
+                  <div class="progress-final-card">
+                    <div class="progress-final-card-title">Final y campeón</div>
+                    <div class="progress-final-grid">
+                      <div
+                        class="progress-final-slot"
+                        :class="{ 'progress-final-slot--ok': f.campeonStatus.finalista1 }"
+                      >
+                        <span class="progress-final-slot-label">Finalista 1</span>
+                        <span class="progress-final-slot-value">
+                          {{ f.campeonStatus.finalista1Nombre || 'Sin cargar' }}
+                        </span>
+                      </div>
+                      <div
+                        class="progress-final-slot"
+                        :class="{ 'progress-final-slot--ok': f.campeonStatus.finalista2 }"
+                      >
+                        <span class="progress-final-slot-label">Finalista 2</span>
+                        <span class="progress-final-slot-value">
+                          {{ f.campeonStatus.finalista2Nombre || 'Sin cargar' }}
+                        </span>
+                      </div>
+                      <div
+                        class="progress-final-slot progress-final-slot--campeon"
+                        :class="{ 'progress-final-slot--ok': f.campeonStatus.campeon }"
+                      >
+                        <span class="progress-final-slot-label">Campeón</span>
+                        <span class="progress-final-slot-value">
+                          {{ f.campeonStatus.campeonNombre || 'Sin cargar' }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    v-for="grupo in f.detallePorFase"
+                    :key="grupo.fase"
+                    class="progress-fase-block"
+                  >
+                    <div class="progress-fase-block-head">
+                      <span class="progress-fase-block-title">{{ grupo.faseLabel }}</span>
+                      <span
+                        class="progress-fase-block-stat"
+                        :class="pctClass(progressPct(grupo.done, grupo.total))"
+                      >
+                        {{ grupo.done }}/{{ grupo.total }}
+                      </span>
+                    </div>
+                    <div class="progress-fase-matches">
+                      <div
+                        v-for="m in grupo.items"
+                        :key="m.partido_id"
+                        class="progress-fase-match"
+                        :class="{ 'progress-fase-match--pend': !m.completa }"
+                      >
+                        <div class="progress-fase-match-main">
+                          <span class="progress-fase-match-ronda">{{ m.ronda || '—' }}</span>
+                          <span class="progress-fase-match-teams">
+                            {{ m.equipo_local }} vs {{ m.equipo_visitante }}
+                          </span>
+                        </div>
+                        <div class="progress-fase-match-pred">
+                          <span v-if="m.completa" class="progress-detalle-ok">{{ m.resumen }}</span>
+                          <span v-else-if="m.empezada" class="progress-detalle-warn">Incompleto</span>
+                          <span v-else class="progress-detalle-pend">Sin cargar</span>
+                          <span
+                            v-if="m.completa && m.penales"
+                            class="progress-detalle-pen"
+                          >
+                            pen.
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div v-if="f.partidosPendientes.length" class="progress-partidos-pendientes">
+                    <span class="progress-grupos-label">
+                      Grupos pendientes ({{ f.partidosPendientes.length }})
+                    </span>
+                    <div
+                      v-for="m in f.partidosPendientes"
+                      :key="m.partido_id"
+                      class="progress-partido-item"
+                    >
+                      <span class="progress-partido-grupo">{{ m.grupo }}</span>
+                      <span class="progress-partido-teams">
+                        {{ m.equipo_local }} vs {{ m.equipo_visitante }}
+                      </span>
+                      <span class="progress-partido-estado">{{ estadoPartido(m) }}</span>
+                    </div>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
     </div>
+
+    <p v-else-if="filas.length" class="text-muted small">
+      Ningún participante coincide con el filtro actual.
+    </p>
   </div>
 </template>

@@ -339,18 +339,50 @@ export function progresoGlobalFase(partidosE, predsAll, participanteIds, fase) {
   return { done, total, pct: progressPct(done, total), nPartidos, nUsers }
 }
 
+export function campeonEquipos(campeon) {
+  const finalista1 = String(campeon?.finalista_1 ?? '').trim() || null
+  const finalista2 = String(campeon?.finalista_2 ?? '').trim() || null
+  const campeonEquipo = String(campeon?.equipo ?? '').trim() || null
+  return { finalista1, finalista2, campeonEquipo }
+}
+
 export function statusCampeon(campeon) {
-  const finalista1 = Boolean(campeon?.finalista_1?.trim?.() || campeon?.finalista_1)
-  const finalista2 = Boolean(campeon?.finalista_2?.trim?.() || campeon?.finalista_2)
-  const campeonOk = Boolean(campeon?.equipo?.trim?.() || campeon?.equipo)
+  const { finalista1: f1, finalista2: f2, campeonEquipo: eq } = campeonEquipos(campeon)
+  const finalista1 = Boolean(f1)
+  const finalista2 = Boolean(f2)
+  const campeonOk = Boolean(eq)
   const campos = [finalista1, finalista2, campeonOk].filter(Boolean).length
   return {
     finalista1,
     finalista2,
     campeon: campeonOk,
+    finalista1Nombre: f1,
+    finalista2Nombre: f2,
+    campeonNombre: eq,
     completo: finalista1 && finalista2 && campeonOk,
     pct: progressPct(campos, 3),
   }
+}
+
+export function agruparDetalleElimPorFase(detalleElim) {
+  const grupos = []
+  let actual = null
+  for (const item of detalleElim || []) {
+    if (!actual || actual.fase !== item.fase) {
+      actual = {
+        fase: item.fase,
+        faseLabel: item.faseLabel,
+        items: [],
+        done: 0,
+        total: 0,
+      }
+      grupos.push(actual)
+    }
+    actual.items.push(item)
+    actual.total++
+    if (item.completa) actual.done++
+  }
+  return grupos
 }
 
 export function progresoGlobalCampeon(campeones, participanteIds) {
