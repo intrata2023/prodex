@@ -246,10 +246,50 @@ export async function importWorldCupEliminatoriasFromMatches(supabase, adminPin,
   }
 }
 
-/** Sincroniza cuadros desde /api/wc-matches (cliente). */
+/** Sincroniza cuadros vía API del servidor (Vercel). Más fiable que 31 RPCs desde el browser. */
+export async function syncCuadrosViaServer(adminPin) {
+  const res = await fetch('/api/sync-cuadros', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ admin_pin: adminPin }),
+  })
+
+  const text = await res.text()
+  let data = null
+  try {
+    data = JSON.parse(text)
+  } catch {
+    if (/^\s*</.test(text)) {
+      throw new Error(
+        '/api/sync-cuadros no está disponible en el servidor. Verificá el deploy en Vercel.'
+      )
+    }
+    throw new Error(`Respuesta inválida del servidor (${res.status})`)
+  }
+
+  if (!res.ok || data?.error) {
+    throw new Error(data?.error || `Error ${res.status} al sincronizar cuadros`)
+  }
+
+  return data
+}
+
+/** Sincroniza cuadros: primero servidor, fallback cliente si el endpoint no existe aún. */
 export async function importWorldCupEliminatorias(supabase, adminPin) {
-  const matches = await fetchWorldCupMatches()
-  return importWorldCupEliminatoriasFromMatches(supabase, adminPin, matches)
+  try {
+    return await syncCuadrosViaServer(adminPin)
+  } catch (serverErr) {
+    const msg = serverErr.message || ''
+    if (
+      msg.includes('PIN') ||
+      msg.includes('admin_update_partido') ||
+      msg.includes('FOOTBALL_DATA_TOKEN')
+    ) {
+      throw serverErr
+    }
+    const matches = await fetchWorldCupMatches()
+    return importWorldCupEliminatoriasFromMatches(supabase, adminPin, matches)
+  }
 }
 
 export async function fetchFootballDataMatches(token) {

@@ -1,15 +1,25 @@
-import { createClient } from '@supabase/supabase-js'
 import {
+  createSupabaseFromEnv,
   fetchFootballDataMatches,
-  importWorldCupEliminatoriasFromMatches,
-} from '../src/lib/syncResults.js'
+  footballTokenFromEnv,
+  syncEliminatoriasCuadros,
+  verifyAdminPin,
+} from './lib/syncCuadrosServer.js'
 
-function env(name, fallback) {
-  return process.env[name] || (fallback ? process.env[fallback] : undefined)
+function parseBody(req) {
+  if (req.body && typeof req.body === 'object') return req.body
+  if (typeof req.body === 'string') {
+    try {
+      return JSON.parse(req.body)
+    } catch {
+      return {}
+    }
+  }
+  return {}
 }
 
-function unauthorized(res) {
-  res.status(401).json({ error: 'No autorizado' })
+function unauthorized(res, message = 'No autorizado') {
+  res.status(401).json({ error: message })
 }
 
 export default async function handler(req, res) {
@@ -18,36 +28,63 @@ export default async function handler(req, res) {
     return
   }
 
-  const cronSecret = env('CRON_SECRET')
+  const cronSecret = process.env.CRON_SECRET
   const authHeader = req.headers.authorization || ''
   const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
+  const body = parseBody(req)
+  const adminPin = body.admin_pin || body.adminPin || null
+  const isCron = Boolean(cronSecret && bearer === cronSecret)
 
-  if (!cronSecret || bearer !== cronSecret) {
-    unauthorized(res)
+  if (!isCron && !adminPin) {
+    unauthorized(res, 'Enviá admin_pin en el body o usá Authorization Bearer CRON_SECRET')
     return
   }
 
-  const footballToken = env('FOOTBALL_DATA_TOKEN', 'VITE_FOOTBALL_DATA_TOKEN')
-  const adminPin = env('ADMIN_SYNC_PIN', 'SYNC_ADMIN_PIN')
-  const supabaseUrl = env('VITE_SUPABASE_URL', 'SUPABASE_URL')
-  const supabaseKey =
-    env('SUPABASE_SERVICE_ROLE_KEY') ||
-    env('VITE_SUPABASE_ANON_KEY', 'SUPABASE_ANON_KEY')
-
-  if (!footballToken || !adminPin || !supabaseUrl || !supabaseKey) {
+  const footballToken = footballTokenFromEnv()
+  if (!footballToken) {
     res.status(500).json({
-      error:
-        'Faltan variables en Vercel: FOOTBALL_DATA_TOKEN, ADMIN_SYNC_PIN, VITE_SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY (o anon key).',
+      error: 'Falta FOOTBALL_DATA_TOKEN en Vercel (Settings → Environment Variables).',
+    })
+    return
+  }
+
+  let supabase
+  try {
+    supabase = createSupabaseFromEnv()
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+    return
+  }
+
+  const pinForSync = isCron
+    ? process.env.ADMIN_SYNC_PIN || process.env.SYNC_ADMIN_PIN
+    : adminPin
+
+  if (!pinForSync) {
+    res.status(500).json({
+      error: isCron
+        ? 'Falta ADMIN_SYNC_PIN en Vercel para el cron.'
+        : 'Falta admin_pin',
     })
     return
   }
 
   try {
+    if (!isCron) {
+      await verifyAdminPin(supabase, adminPin)
+    }
+
     const matches = await fetchFootballDataMatches(footballToken)
-    const supabase = createClient(supabaseUrl, supabaseKey)
-    const stats = await importWorldCupEliminatoriasFromMatches(supabase, adminPin, matches)
+    const stats = await syncEliminatoriasCuadros(supabase, pinForSync, matches)
     res.status(200).json({ ok: true, ...stats })
   } catch (e) {
-    res.status(500).json({ error: e.message || 'Error al sincronizar cuadros' })
+    const msg = e.message || 'Error al sincronizar cuadros'
+    if (msg.includes('admin_update_partido')) {
+      res.status(500).json({
+        error: 'Falta ejecutar supabase/admin_update_partido.sql en Supabase.',
+      })
+      return
+    }
+    res.status(500).json({ error: msg })
   }
 }

@@ -98,11 +98,12 @@ function textoCuadrosSync(stats, { automatico = false } = {}) {
   if (stats.conParcial) texto += `, ${stats.conParcial} con un rival confirmado`
   if (!automatico) texto += '. Mirá «Armar cruces a mano» abajo.'
   else texto += '.'
+  const pendientes = stats.total - stats.conEquipos - stats.conParcial
+  if (pendientes > 0) {
+    texto += ` Faltan ${pendientes} cruces: la API los completa cuando cierran los grupos correspondientes.`
+  }
   if (stats.conservados > 0) {
-    texto += ` Se conservaron ${stats.conservados} equipos ya cargados (la API vino incompleta).`
-  } else if (stats.apiConEquipos + stats.apiConParcial === 0) {
-    texto +=
-      ' La API aún no trae equipos para eliminatorias; los cruces quedan con placeholder hasta que FIFA los confirme.'
+    texto += ` Se conservaron ${stats.conservados} equipos ya cargados (respuesta parcial de la API).`
   }
   return texto
 }
@@ -111,7 +112,13 @@ async function sincronizarCuadros({ automatico = false, confirmar = false } = {}
   if (importandoCuadros.value) return
 
   const pin = automatico ? adminPin.value : requireAdminPin()
-  if (!pin) return
+  if (!pin) {
+    if (!automatico) {
+      mensajeOk.value = false
+      mensaje.value = 'Sesión admin expirada. Volvé a entrar con tu PIN.'
+    }
+    return
+  }
 
   if (confirmar) {
     const ok = confirm(
@@ -126,14 +133,14 @@ async function sincronizarCuadros({ automatico = false, confirmar = false } = {}
   if (!automatico) {
     mensaje.value = ''
     mensajeOk.value = true
+  } else {
+    mensajeOk.value = true
+    mensaje.value = 'Sincronizando cuadros desde la API…'
   }
   try {
     const stats = await importWorldCupEliminatorias(supabase, pin)
-    const huboNovedad = stats.inserted > 0 || stats.conEquipos > 0 || stats.conParcial > 0
-    if (!automatico || huboNovedad) {
-      mensajeOk.value = true
-      mensaje.value = textoCuadrosSync(stats, { automatico })
-    }
+    mensajeOk.value = true
+    mensaje.value = textoCuadrosSync(stats, { automatico })
     await cargar()
     if (!automatico) {
       await nextTick()
