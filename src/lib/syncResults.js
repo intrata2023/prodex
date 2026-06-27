@@ -1,3 +1,5 @@
+import { isPlaceholderEquipo } from './eliminatorias.js'
+
 const FASE_BY_STAGE = {
   GROUP_STAGE: 'grupos',
   LAST_32: 'r32',
@@ -92,6 +94,31 @@ function stripEscudos(partido) {
   return rest
 }
 
+/** No pisar un equipo real ya guardado si la API devuelve placeholder (respuesta en caché). */
+export function mergeEquipoNombre(apiName, existingName) {
+  if (!isPlaceholderEquipo(apiName)) return apiName
+  if (!isPlaceholderEquipo(existingName)) return existingName
+  return apiName
+}
+
+function normalizeExternalId(id) {
+  if (id == null || id === '') return null
+  const n = Number(id)
+  return Number.isFinite(n) ? n : null
+}
+
+function countEquiposConfirmados(partidos) {
+  let completos = 0
+  let parciales = 0
+  for (const p of partidos) {
+    const local = !isPlaceholderEquipo(p.equipo_local)
+    const visitante = !isPlaceholderEquipo(p.equipo_visitante)
+    if (local && visitante) completos++
+    else if (local || visitante) parciales++
+  }
+  return { completos, parciales }
+}
+
 export async function importWorldCupFixture(supabase, adminPin) {
   const matches = await fetchWorldCupMatches()
   let partidos = mapApiMatchesToPartidos(matches)
@@ -137,32 +164,51 @@ export async function importWorldCupEliminatorias(supabase, adminPin) {
 
   const { data: existentes } = await supabase
     .from('partidos')
-    .select('id, external_id, orden')
+    .select('id, external_id, orden, equipo_local, equipo_visitante')
     .neq('fase', 'grupos')
 
   const byExternalId = new Map(
     (existentes || [])
-      .filter((p) => p.external_id != null)
-      .map((p) => [p.external_id, p])
+      .map((p) => {
+        const externalId = normalizeExternalId(p.external_id)
+        return externalId != null ? [externalId, { ...p, external_id: externalId }] : null
+      })
+      .filter(Boolean)
   )
 
   const baseOrden = maxGrupos?.orden ?? 0
   let nextOrden = Math.max(baseOrden, ...(existentes || []).map((p) => p.orden ?? 0), 0) + 1
   let updated = 0
   let inserted = 0
+  let conservados = 0
+  const guardados = []
 
   async function upsertRow(row) {
+    const externalId = normalizeExternalId(row.external_id)
+    const existente = externalId != null ? byExternalId.get(externalId) : null
+
+    let equipo_local = row.equipo_local
+    let equipo_visitante = row.equipo_visitante
+    if (existente) {
+      const mergedLocal = mergeEquipoNombre(row.equipo_local, existente.equipo_local)
+      const mergedVisitante = mergeEquipoNombre(row.equipo_visitante, existente.equipo_visitante)
+      if (mergedLocal !== row.equipo_local) conservados++
+      if (mergedVisitante !== row.equipo_visitante) conservados++
+      equipo_local = mergedLocal
+      equipo_visitante = mergedVisitante
+    }
+
     const payload = stripEscudos({
       fase: row.fase,
       ronda: row.ronda,
       grupo: null,
-      equipo_local: row.equipo_local,
-      equipo_visitante: row.equipo_visitante,
-      external_id: row.external_id,
+      equipo_local,
+      equipo_visitante,
+      external_id: externalId,
       fecha: row.fecha,
     })
 
-    const existente = row.external_id != null ? byExternalId.get(row.external_id) : null
+    guardados.push({ equipo_local, equipo_visitante })
     if (existente) {
       const { error } = await supabase.rpc('admin_update_partido', {
         p_admin_pin: adminPin,
@@ -186,15 +232,19 @@ export async function importWorldCupEliminatorias(supabase, adminPin) {
     await upsertRow(row)
   }
 
-  const conEquipos = partidos.filter(
-    (p) =>
-      p.equipo_local &&
-      p.equipo_visitante &&
-      !p.equipo_local.includes('· Local') &&
-      !p.equipo_visitante.includes('· Visitante')
-  ).length
+  const apiStats = countEquiposConfirmados(partidos)
+  const guardadosStats = countEquiposConfirmados(guardados)
 
-  return { total: partidos.length, updated, inserted, conEquipos }
+  return {
+    total: partidos.length,
+    updated,
+    inserted,
+    conEquipos: guardadosStats.completos,
+    conParcial: guardadosStats.parciales,
+    apiConEquipos: apiStats.completos,
+    apiConParcial: apiStats.parciales,
+    conservados,
+  }
 }
 
 export async function fetchWorldCupMatches() {

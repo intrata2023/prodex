@@ -99,9 +99,19 @@ async function importarCuadros() {
   mensaje.value = ''
   try {
     const stats = await importWorldCupEliminatorias(supabase, requireAdminPin())
-    mensaje.value =
+    let texto =
       `Cuadros actualizados: ${stats.total} partidos (${stats.updated} actualizados, ` +
-      `${stats.inserted} nuevos). ${stats.conEquipos} con equipos confirmados en la API.`
+      `${stats.inserted} nuevos). ${stats.conEquipos} cruces completos`
+    if (stats.conParcial) texto += `, ${stats.conParcial} con un rival confirmado`
+    texto += `.`
+    if (stats.apiConEquipos + stats.apiConParcial < stats.conEquipos + stats.conParcial) {
+      texto +=
+        ` Se conservaron equipos ya cargados (la API devolvió ${stats.apiConEquipos + stats.apiConParcial} confirmaciones).`
+    } else if (stats.apiConEquipos + stats.apiConParcial === 0) {
+      texto +=
+        ' La API aún no trae equipos para eliminatorias; los cruces quedan con placeholder hasta que FIFA los confirme.'
+    }
+    mensaje.value = texto
     await cargar()
   } catch (e) {
     mensaje.value = e.message
