@@ -1,12 +1,12 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
 import { fetchAllPartidos } from '../lib/dataLoaders.js'
 import { importWorldCupFixture, importWorldCupEliminatorias } from '../lib/syncResults.js'
 import { useAdminPin } from '../composables/useAdminPin.js'
 import AdminCrucesManual from './AdminCrucesManual.vue'
 
-const { requireAdminPin } = useAdminPin()
+const { requireAdminPin, adminPin } = useAdminPin()
 const partidos = ref([])
 const nuevo = ref({
   fase: 'r32',
@@ -18,8 +18,14 @@ const nuevo = ref({
   orden: 0,
 })
 const mensaje = ref('')
+const mensajeOk = ref(true)
 const importando = ref(false)
 const importandoCuadros = ref(false)
+const crucesRef = ref(null)
+
+const eliminatoriasCount = computed(
+  () => partidos.value.filter((p) => p.fase !== 'grupos').length
+)
 
 const fases = [
   { value: 'grupos', label: 'Grupos' },
@@ -84,49 +90,83 @@ async function importarFixture() {
   importando.value = false
 }
 
-async function importarCuadros() {
-  if (
-    !confirm(
+function textoCuadrosSync(stats, { automatico = false } = {}) {
+  let texto = automatico ? 'Cuadros sincronizados' : 'Cuadros actualizados'
+  texto +=
+    `: ${stats.total} partidos (${stats.updated} actualizados, ${stats.inserted} nuevos). ` +
+    `${stats.conEquipos} cruces completos`
+  if (stats.conParcial) texto += `, ${stats.conParcial} con un rival confirmado`
+  if (!automatico) texto += '. Mirá «Armar cruces a mano» abajo.'
+  else texto += '.'
+  if (stats.conservados > 0) {
+    texto += ` Se conservaron ${stats.conservados} equipos ya cargados (la API vino incompleta).`
+  } else if (stats.apiConEquipos + stats.apiConParcial === 0) {
+    texto +=
+      ' La API aún no trae equipos para eliminatorias; los cruces quedan con placeholder hasta que FIFA los confirme.'
+  }
+  return texto
+}
+
+async function sincronizarCuadros({ automatico = false, confirmar = false } = {}) {
+  if (importandoCuadros.value) return
+
+  const pin = automatico ? adminPin.value : requireAdminPin()
+  if (!pin) return
+
+  if (confirmar) {
+    const ok = confirm(
       'Trae 16avos, octavos, cuartos, semifinal y final desde la API.\n\n' +
         'No modifica la fase de grupos. Si el partido ya existe (mismo ID de API), ' +
         'actualiza equipos y fechas conservando las predicciones cargadas.\n\n¿Continuar?'
     )
-  ) {
-    return
+    if (!ok) return
   }
 
   importandoCuadros.value = true
-  mensaje.value = ''
+  if (!automatico) {
+    mensaje.value = ''
+    mensajeOk.value = true
+  }
   try {
-    const stats = await importWorldCupEliminatorias(supabase, requireAdminPin())
-    let texto =
-      `Cuadros actualizados: ${stats.total} partidos (${stats.updated} actualizados, ` +
-      `${stats.inserted} nuevos). ${stats.conEquipos} cruces completos`
-    if (stats.conParcial) texto += `, ${stats.conParcial} con un rival confirmado`
-    texto += `.`
-    if (stats.apiConEquipos + stats.apiConParcial < stats.conEquipos + stats.conParcial) {
-      texto +=
-        ` Se conservaron equipos ya cargados (la API devolvió ${stats.apiConEquipos + stats.apiConParcial} confirmaciones).`
-    } else if (stats.apiConEquipos + stats.apiConParcial === 0) {
-      texto +=
-        ' La API aún no trae equipos para eliminatorias; los cruces quedan con placeholder hasta que FIFA los confirme.'
+    const stats = await importWorldCupEliminatorias(supabase, pin)
+    const huboNovedad = stats.inserted > 0 || stats.conEquipos > 0 || stats.conParcial > 0
+    if (!automatico || huboNovedad) {
+      mensajeOk.value = true
+      mensaje.value = textoCuadrosSync(stats, { automatico })
     }
-    mensaje.value = texto
     await cargar()
+    if (!automatico) {
+      await nextTick()
+      crucesRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
   } catch (e) {
+    mensajeOk.value = false
     mensaje.value = e.message
   }
   importandoCuadros.value = false
 }
 
-onMounted(cargar)
+async function importarCuadros() {
+  await sincronizarCuadros({ confirmar: true })
+}
+
+onMounted(async () => {
+  await cargar()
+  await sincronizarCuadros({ automatico: true })
+})
 defineExpose({ cargar })
 </script>
 
 <template>
   <div>
     <h3 class="section-title">Partidos</h3>
-    <div v-if="mensaje" class="alert alert-secondary py-2">{{ mensaje }}</div>
+    <div
+      v-if="mensaje"
+      class="alert py-2"
+      :class="mensajeOk ? 'alert-success' : 'alert-danger'"
+    >
+      {{ mensaje }}
+    </div>
 
     <button
       class="btn btn-outline-primary w-100 mb-2"
@@ -136,11 +176,16 @@ defineExpose({ cargar })
       {{ importandoCuadros ? 'Trayendo cuadros…' : 'Traer cuadros (eliminatorias)' }}
     </button>
     <p class="text-muted small mb-3">
-      Actualiza solo 16avos en adelante. La fase de grupos no se toca. Cuando FIFA define
-      cruces, la API trae los equipos y acá se actualizan automáticamente.
+      Se sincroniza solo al entrar al admin y cada hora en el servidor. También podés forzar
+      con el botón. Solo actualiza 16avos en adelante; la fase de grupos no se toca.
     </p>
 
-    <AdminCrucesManual :partidos="partidos" @updated="cargar" />
+    <div ref="crucesRef">
+      <AdminCrucesManual :partidos="partidos" @updated="cargar" />
+    </div>
+    <p v-if="eliminatoriasCount" class="text-muted small mb-3">
+      {{ eliminatoriasCount }} partidos de eliminatorias en la base (16avos → final).
+    </p>
 
     <button
       class="btn btn-primary w-100 mb-3"

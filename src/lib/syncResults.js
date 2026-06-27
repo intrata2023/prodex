@@ -144,11 +144,10 @@ export async function importWorldCupFixture(supabase, adminPin) {
 }
 
 /**
- * Sincroniza cuadros de eliminatorias desde la API.
- * No toca partidos de grupos. Actualiza por external_id para conservar predicciones.
+ * Sincroniza cuadros de eliminatorias desde partidos ya obtenidos de la API.
+ * Usado por el cliente y por el cron de Vercel.
  */
-export async function importWorldCupEliminatorias(supabase, adminPin) {
-  const matches = await fetchWorldCupMatches()
+export async function importWorldCupEliminatoriasFromMatches(supabase, adminPin, matches) {
   const partidos = mapApiMatchesToEliminatorias(matches)
   if (!partidos.length) {
     throw new Error('La API no devolvió partidos de eliminatorias')
@@ -247,14 +246,82 @@ export async function importWorldCupEliminatorias(supabase, adminPin) {
   }
 }
 
-export async function fetchWorldCupMatches() {
-  const res = await fetch('/api/wc-matches')
-  if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`API error ${res.status}: ${text}`)
+/** Sincroniza cuadros desde /api/wc-matches (cliente). */
+export async function importWorldCupEliminatorias(supabase, adminPin) {
+  const matches = await fetchWorldCupMatches()
+  return importWorldCupEliminatoriasFromMatches(supabase, adminPin, matches)
+}
+
+export async function fetchFootballDataMatches(token) {
+  return fetchFootballDataDirect(token)
+}
+
+const FOOTBALL_DATA_WC_URL =
+  'https://api.football-data.org/v4/competitions/WC/matches?season=2026'
+
+function parseMatchesPayload(text) {
+  if (!text?.trim()) return null
+  try {
+    return JSON.parse(text)
+  } catch {
+    return null
   }
-  const data = await res.json()
-  return data.matches || []
+}
+
+async function fetchFootballDataDirect(token) {
+  const res = await fetch(FOOTBALL_DATA_WC_URL, {
+    headers: { 'X-Auth-Token': token },
+  })
+  const text = await res.text()
+  const data = parseMatchesPayload(text)
+  if (!data) throw new Error('football-data.org devolvió una respuesta inválida')
+  if (!res.ok) throw new Error(data.message || `football-data.org respondió ${res.status}`)
+  if (!data.matches?.length) throw new Error('football-data.org no devolvió partidos')
+  return data.matches
+}
+
+export async function fetchWorldCupMatches() {
+  let res
+  try {
+    res = await fetch('/api/wc-matches')
+  } catch {
+    throw new Error(
+      'No se pudo contactar /api/wc-matches. En local usá npm run dev; en producción verificá el deploy en Vercel.'
+    )
+  }
+
+  const text = await res.text()
+  const data = parseMatchesPayload(text)
+
+  if (data?.error) {
+    throw new Error(
+      typeof data.error === 'string'
+        ? data.error
+        : 'Falta FOOTBALL_DATA_TOKEN en el servidor (Vercel → Settings → Environment Variables).'
+    )
+  }
+
+  if (data?.matches?.length) return data.matches
+
+  const looksLikeHtml = /^\s*</.test(text)
+  if (looksLikeHtml) {
+    const devToken = import.meta.env.VITE_FOOTBALL_DATA_TOKEN
+    if (import.meta.env.DEV && devToken) {
+      return fetchFootballDataDirect(devToken)
+    }
+    throw new Error(
+      '/api/wc-matches no está disponible (el servidor devolvió HTML en lugar de JSON). ' +
+        'En Vercel agregá FOOTBALL_DATA_TOKEN y redeployá. En local: npm run dev con FOOTBALL_DATA_TOKEN en .env.'
+    )
+  }
+
+  if (!res.ok) {
+    throw new Error(`API error ${res.status}: ${text.slice(0, 200)}`)
+  }
+
+  throw new Error(
+    'La API no devolvió partidos de eliminatorias. Revisá FOOTBALL_DATA_TOKEN en el servidor.'
+  )
 }
 
 export function mapApiMatchToResult(match) {
