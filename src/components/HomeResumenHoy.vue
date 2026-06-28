@@ -20,7 +20,6 @@ import {
   claveArgentinaOffset,
   formatFechaDiaTitulo,
   labelDiaRelativo,
-  partidosConPrediccion,
   partidosDelDia,
   partidosListadoPredicciones,
   resumenCargaDia,
@@ -53,10 +52,6 @@ const partidosDelDiaTodos = computed(() =>
   partidosDelDia(partidosLista.value, claveDia.value)
 )
 
-const partidosDelDiaActivo = computed(() =>
-  partidosDelDia(partidosConPrediccion(partidosLista.value, predicciones.value), claveDia.value)
-)
-
 const cargaDia = computed(() =>
   resumenCargaDia(partidosDelDiaTodos.value, predicciones.value, {
     gruposAbiertos: config.value.grupos_abiertos,
@@ -73,12 +68,6 @@ const campeonBloqueado = computed(
     campeonEdicionCerrada(partidos.value, ahora.value)
 )
 
-const etiquetaDiaCarga = computed(() => {
-  const rel = labelDiaRelativo(offsetDias.value)
-  if (rel) return rel.toLowerCase()
-  return 'este día'
-})
-
 const linkCargaPendiente = computed(() => {
   const pend = cargaDia.value.partidosPendientes
   if (!pend.length) return null
@@ -90,7 +79,7 @@ const linkCargaPendiente = computed(() => {
 })
 
 const resumenDia = computed(() =>
-  resumenPuntosDia(partidosDelDiaActivo.value, predicciones.value, resultados.value)
+  resumenPuntosDia(partidosDelDiaTodos.value, predicciones.value, resultados.value)
 )
 
 function etiquetaPartido(partido) {
@@ -146,6 +135,7 @@ async function cargar() {
     ])
 
     campeonPred.value = campRes.data || null
+    if (campRes.error) throw campRes.error
 
     partidos.value = pts
     const predMap = Object.fromEntries(preds.map((p) => [p.partido_id, p]))
@@ -172,10 +162,10 @@ async function cargar() {
       </RouterLink>
       <div v-if="participanteId" class="home-hoy-links-row">
         <RouterLink
-          :to="`/rivales/detalle/${participanteId}`"
+          to="/rivales"
           class="home-hoy-link home-hoy-link--pill"
         >
-          Mis predicciones
+          Ver contrincantes
         </RouterLink>
         <RouterLink
           to="/eliminatorias#finalistas-campeon"
@@ -269,18 +259,11 @@ async function cargar() {
     </p>
 
     <template v-else>
-      <p v-if="partidosDelDiaActivo.length === 0 && cargaDia.total === 0" class="home-hoy-empty">
+      <p v-if="partidosDelDiaTodos.length === 0" class="home-hoy-empty">
         No hay partidos programados para este día.
       </p>
 
-      <p
-        v-else-if="partidosDelDiaActivo.length === 0 && cargaDia.pendientes > 0"
-        class="home-hoy-empty"
-      >
-        Todavía no cargaste predicciones para {{ etiquetaDiaCarga }}.
-      </p>
-
-      <template v-else-if="partidosDelDiaActivo.length > 0">
+      <template v-else>
         <div class="home-hoy-stats">
           <span>{{ resumenDia.total }} {{ resumenDia.total === 1 ? 'partido' : 'partidos' }}</span>
           <template v-if="resumenDia.conResultado">
@@ -297,7 +280,7 @@ async function cargar() {
 
         <div class="home-hoy-lista">
           <MisPrediccionRow
-            v-for="p in partidosDelDiaActivo"
+            v-for="p in partidosDelDiaTodos"
             :key="p.id"
             :partido="p"
             :prediccion="predicciones[p.id]"

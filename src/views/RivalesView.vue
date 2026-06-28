@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { RouterLink } from 'vue-router'
 import AppLayout from '../components/AppLayout.vue'
 import NavBackLink from '../components/NavBackLink.vue'
 import MisPrediccionRow from '../components/MisPrediccionRow.vue'
@@ -164,13 +165,15 @@ async function cargar() {
   <AppLayout title="Contrincantes">
     <NavBackLink to="/dashboard" label="Inicio" />
 
+    <nav class="home-hoy-links-bar rivales-links-bar" aria-label="Contrincantes">
+      <RouterLink to="/rivales/detalle" class="home-hoy-link home-hoy-link--cta">
+        Ver detalle completo
+      </RouterLink>
+    </nav>
+
     <p class="rivales-intro">
-      Ordenados según la tabla. Tocá un nombre para el día elegido, o entrá al detalle completo.
-      En eliminatorias, las predicciones de los demás se van revelando a medida que cierra la carga
-      de cada cruce (1 h antes del partido).
-      <router-link to="/rivales/detalle" class="rivales-intro-link rivales-intro-link--cta">
-        Ver predicciones detalladas
-      </router-link>
+      Panel por día de cada participante. Tocá un nombre para ver sus predicciones del día elegido.
+      En eliminatorias, las predicciones de los demás se revelan 1 h antes de cada partido.
     </p>
 
     <section class="home-hoy rivales-panel">
@@ -290,6 +293,13 @@ async function cargar() {
                 :show-contrincantes-link="linkContrincantes(p)"
               />
             </div>
+
+            <RouterLink
+              :to="`/rivales/detalle/${rival.id}`"
+              class="rivales-detalle-link"
+            >
+              Ver detalle completo
+            </RouterLink>
           </div>
         </div>
       </div>

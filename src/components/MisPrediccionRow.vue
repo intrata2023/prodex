@@ -84,7 +84,8 @@ onMounted(load)
     <div class="mp-center">
       <span v-if="prediccionOculta" class="mp-pred-oculta">{{ mensajePrediccionOculta }}</span>
       <template v-else>
-        <span class="mp-pred">{{ predDisplay?.score ?? `${prediccion.goles_local}–${prediccion.goles_visitante}` }}</span>
+        <span v-if="predDisplay" class="mp-pred">{{ predDisplay.score }}</span>
+        <span v-else class="mp-pred mp-pred--sin">Sin cargar</span>
         <span
           v-if="esEliminatoria && predDisplay?.penales"
           class="mp-pen"

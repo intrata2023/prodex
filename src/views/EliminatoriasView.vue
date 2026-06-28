@@ -9,7 +9,7 @@ import FinalistasCampeonPicker from '../components/FinalistasCampeonPicker.vue'
 import { useSession } from '../composables/useSession.js'
 import { useConfig } from '../composables/useConfig.js'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
-import { fetchAllPartidos, fetchAllResultados, mapResultadosPorPartido } from '../lib/dataLoaders.js'
+import { fetchAllPartidos, fetchAllResultados, fetchPrediccionesParticipante, mapResultadosPorPartido } from '../lib/dataLoaders.js'
 import {
   campeonEdicionCerrada,
   cruceEliminatoriaCompleto,
@@ -99,23 +99,28 @@ async function cargar() {
     loading.value = false
     return
   }
-  partidos.value = await fetchAllPartidos(supabase)
+  try {
+    const [pts, preds, resList, campRes] = await Promise.all([
+      fetchAllPartidos(supabase),
+      fetchPrediccionesParticipante(supabase, participanteId.value),
+      fetchAllResultados(supabase),
+      supabase
+        .from('prediccion_campeon')
+        .select('*')
+        .eq('participante_id', participanteId.value)
+        .maybeSingle(),
+    ])
 
-  const [predsRes, resList] = await Promise.all([
-    supabase.from('predicciones').select('*').eq('participante_id', participanteId.value),
-    fetchAllResultados(supabase),
-  ])
-  const { data: preds } = predsRes
-  predicciones.value = Object.fromEntries((preds || []).map((p) => [p.partido_id, p]))
-  resultados.value = mapResultadosPorPartido(resList)
-
-  const { data: camp } = await supabase
-    .from('prediccion_campeon')
-    .select('*')
-    .eq('participante_id', participanteId.value)
-    .maybeSingle()
-  if (camp) campeon.value = { ...campeon.value, ...camp }
-  loading.value = false
+    partidos.value = pts
+    predicciones.value = Object.fromEntries(preds.map((p) => [p.partido_id, p]))
+    resultados.value = mapResultadosPorPartido(resList)
+    if (campRes.error) throw campRes.error
+    if (campRes.data) campeon.value = { ...campeon.value, ...campRes.data }
+  } catch (e) {
+    console.error(e)
+  } finally {
+    loading.value = false
+  }
 }
 
 function partidoBloqueado(partido) {
