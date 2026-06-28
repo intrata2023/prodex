@@ -1,281 +1,308 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
 import { fetchAllRows } from '../lib/fetchAll.js'
+import { cruceEliminatoriaCompleto } from '../lib/eliminatorias.js'
 import {
-  countCompletas,
-  countGruposCompletas,
-  progressPct,
-  gruposPendientesPorParticipante,
-  listPartidosPendientes,
   detectarDuplicados,
   mapPrediccionesACanonica,
-  badgeGrupos,
-  FASES_ELIM_PROGRESO,
-  progresoPorFase,
-  progresoGlobalFase,
-  progresoGlobalCampeon,
+  prediccionCompletaCruce,
   statusCampeon,
-  listEliminatoriasDetalle,
-  listEliminatoriasPendientes,
-  agruparDetalleElimPorFase,
-  partidosPredeciblesEliminatorias,
 } from '../lib/participantProgress.js'
+import {
+  claveArgentinaOffset,
+  formatHoraArgentina,
+  partidosDelDia,
+  partidosListadoPredicciones,
+} from '../lib/misPredicciones.js'
+
+const REFRESH_MS = 25_000
 
 const filas = ref([])
 const duplicadosDb = ref([])
+const partidosG = ref([])
 const partidosE = ref([])
-const participanteIds = ref([])
-const ordenPor = ref('pendientes-elim')
-const filtro = ref('pendientes-elim')
-const faseVista = ref('todas')
-const expandido = ref(null)
+const partidosHoy = ref([])
+const filtroHoy = ref('todos')
+const filtroFinalistas = ref('todos')
+const loading = ref(true)
+const ultimaActualizacion = ref(null)
 const avisoCopiado = ref('')
+let refreshTimer = null
+let avisoTimer = null
 
-const fasesVisibles = computed(() => {
-  if (faseVista.value === 'todas') return FASES_ELIM_PROGRESO
-  return FASES_ELIM_PROGRESO.filter((f) => f.fase === faseVista.value)
+const opcionesFiltroHoy = [
+  { value: 'todos', label: 'Todos' },
+  { value: 'cargado', label: 'Cargado' },
+  { value: 'sin-cargar', label: 'Falta cargar' },
+]
+
+const opcionesFiltroFinalistas = [
+  { value: 'todos', label: 'Todos' },
+  { value: 'completo', label: 'Completo' },
+  { value: 'sin-cargar', label: 'Falta cargar' },
+]
+
+const hayPartidoHoy = computed(() => partidosHoy.value.length > 0)
+
+const tituloHoy = computed(() => {
+  if (!partidosHoy.value.length) return 'Hoy no hay partidos programados'
+  const eq = partidosHoy.value
+    .map((p) => `${p.equipo_local} vs ${p.equipo_visitante}`)
+    .join(' · ')
+  return partidosHoy.value.length === 1
+    ? `Partido del día: ${eq}`
+    : `Partidos del día (${partidosHoy.value.length}): ${eq}`
 })
 
-const detallePorFaseFiltrado = (fila) => {
-  if (faseVista.value === 'todas') return fila.detallePorFase
-  return fila.detallePorFase.filter((g) => g.fase === faseVista.value)
+const resumenHoy = computed(() => {
+  if (!hayPartidoHoy.value) return null
+  const cargados = filas.value.filter((f) => f.hoyStatus.cargado === true).length
+  const faltan = filas.value.filter((f) => f.hoyStatus.cargado === false).length
+  return { cargados, faltan, total: filas.value.length }
+})
+
+const resumenFinalistas = computed(() => {
+  const completos = filas.value.filter((f) => f.campeonStatus.completo).length
+  const faltan = filas.value.length - completos
+  return { completos, faltan, total: filas.value.length }
+})
+
+const filtroActivoLabel = computed(() => {
+  const partes = []
+  if (filtroHoy.value === 'cargado') partes.push('partido del día cargado')
+  if (filtroHoy.value === 'sin-cargar') partes.push('falta partido del día')
+  if (filtroFinalistas.value === 'completo') partes.push('finalistas y campeón completo')
+  if (filtroFinalistas.value === 'sin-cargar') partes.push('falta finalistas y campeón')
+  return partes.length ? partes.join(' · ') : 'todos los participantes'
+})
+
+const filasVisibles = computed(() => {
+  let list = [...filas.value]
+
+  if (filtroHoy.value === 'cargado') {
+    list = list.filter((f) => f.hoyStatus.cargado === true)
+  } else if (filtroHoy.value === 'sin-cargar') {
+    list = list.filter((f) => f.hoyStatus.cargado === false)
+  }
+
+  if (filtroFinalistas.value === 'completo') {
+    list = list.filter((f) => f.campeonStatus.completo)
+  } else if (filtroFinalistas.value === 'sin-cargar') {
+    list = list.filter((f) => !f.campeonStatus.completo)
+  }
+
+  return list.sort((a, b) => {
+    const aPend =
+      a.hoyStatus.cargado === false || !a.campeonStatus.completo ? 1 : 0
+    const bPend =
+      b.hoyStatus.cargado === false || !b.campeonStatus.completo ? 1 : 0
+    if (aPend !== bPend) return bPend - aPend
+    return a.nombre.localeCompare(b.nombre, 'es')
+  })
+})
+
+const textoCopiarFiltrado = computed(() => {
+  const lineas = filasVisibles.value.map((f) => {
+    const hoy =
+      f.hoyStatus.cargado === true
+        ? 'Partido del día: cargado ✓'
+        : f.hoyStatus.cargado === false
+          ? 'Partido del día: sin cargar ✗'
+          : 'Partido del día: —'
+    const fin = estadoFinalistas(f).texto
+    return `• ${f.nombre} — ${hoy} · ${fin}`
+  })
+
+  const header = [
+    hayPartidoHoy.value ? tituloHoy.value : 'Progreso PRODEX',
+    `Filtro: ${filtroActivoLabel.value}`,
+    `${filasVisibles.value.length} participante${filasVisibles.value.length === 1 ? '' : 's'}`,
+  ].join('\n')
+
+  if (!lineas.length) return `${header}\n\n(nadie coincide con el filtro)`
+  return [header, '', ...lineas].join('\n')
+})
+
+function detalleFinalistas(fila) {
+  const faltan = []
+  if (!fila.campeonStatus.finalista1) faltan.push('finalista 1')
+  if (!fila.campeonStatus.finalista2) faltan.push('finalista 2')
+  if (!fila.campeonStatus.campeon) faltan.push('campeón')
+  return faltan
 }
 
-const resumenGlobal = computed(() => {
-  const ids = participanteIds.value
-  const preds = filas.value.flatMap((f) => f.predsRaw || [])
-  const fases = FASES_ELIM_PROGRESO.map((meta) => ({
-    ...meta,
-    ...progresoGlobalFase(partidosE.value, preds, ids, meta.fase),
-  }))
-  const campeones = filas.value.map((f) => f.campeonRaw).filter(Boolean)
-  return {
-    gruposPct:
-      filas.value.length && filas.value[0].totalG
-        ? Math.round(
-            (filas.value.reduce((s, f) => s + f.doneG, 0) /
-              (filas.value.length * filas.value[0].totalG)) *
-              100
-          )
-        : 0,
-    fases,
-    campeon: progresoGlobalCampeon(campeones, ids),
+function estadoFinalistas(fila) {
+  const s = fila.campeonStatus
+  if (s.completo) {
+    return { texto: 'Completo ✓', tipo: 'ok' }
   }
-})
+  return { texto: `Falta: ${detalleFinalistas(fila).join(', ')}`, tipo: 'pend' }
+}
 
-const listaApurar = computed(() =>
-  filas.value
-    .filter((f) => f.pendientesElim.length > 0 || !f.campeonStatus.completo)
-    .map((f) => {
-      const faltas = []
-      if (f.pendientesElim.length) faltas.push(`${f.pendientesElim.length} elim.`)
-      if (!f.campeonStatus.finalista1) faltas.push('finalista 1')
-      if (!f.campeonStatus.finalista2) faltas.push('finalista 2')
-      if (!f.campeonStatus.campeon) faltas.push('campeón')
-      return { nombre: f.nombre, faltas: faltas.join(', '), pct16: f.fases.r32.pct }
-    })
-    .sort((a, b) => a.pct16 - b.pct16 || a.nombre.localeCompare(b.nombre, 'es'))
-)
+function calcularHoyStatus(predsP) {
+  if (!partidosHoy.value.length) {
+    return {
+      texto: 'Sin partido',
+      tipo: 'na',
+      cargado: null,
+      title: 'No hay partidos programados para hoy',
+    }
+  }
 
-const textoListaApurar = computed(() => {
-  if (!listaApurar.value.length) return 'Todos tienen eliminatorias y final/campeón completos.'
-  return listaApurar.value.map((x) => `• ${x.nombre} — falta: ${x.faltas}`).join('\n')
-})
+  const predMap = Object.fromEntries(predsP.map((pr) => [pr.partido_id, pr]))
+  const cargados = partidosHoy.value.filter((p) =>
+    prediccionCompletaCruce(predMap[p.id], p)
+  ).length
+  const total = partidosHoy.value.length
+  const partidoTxt = partidosHoy.value
+    .map((p) => `${p.equipo_local} vs ${p.equipo_visitante}`)
+    .join(' · ')
 
-async function copiarListaApurar() {
+  if (cargados >= total) {
+    return {
+      texto: 'Cargado ✓',
+      tipo: 'ok',
+      cargado: true,
+      title: `Partido del día cargado: ${partidoTxt}`,
+    }
+  }
+  if (cargados === 0) {
+    return {
+      texto: 'Sin cargar ✗',
+      tipo: 'pend',
+      cargado: false,
+      title: `Falta cargar: ${partidoTxt}`,
+    }
+  }
+  return {
+    texto: `Parcial ${cargados}/${total}`,
+    tipo: 'pend',
+    cargado: false,
+    title: `Faltan partidos de hoy: ${partidoTxt}`,
+  }
+}
+
+function estadoClass(tipo) {
+  if (tipo === 'ok') return 'admin-prog-estado--ok'
+  if (tipo === 'pend') return 'admin-prog-estado--pend'
+  return 'admin-prog-estado--na'
+}
+
+async function copiarTexto(texto) {
   try {
-    await navigator.clipboard.writeText(textoListaApurar.value)
-    avisoCopiado.value = 'Listado copiado.'
+    await navigator.clipboard.writeText(texto)
+    avisoCopiado.value = 'Listado copiado al portapapeles.'
   } catch {
     avisoCopiado.value = 'No se pudo copiar (permiso del navegador).'
   }
-  setTimeout(() => {
+  clearTimeout(avisoTimer)
+  avisoTimer = setTimeout(() => {
     avisoCopiado.value = ''
   }, 2500)
 }
 
-const filasFiltradas = computed(() => {
-  let list = [...filasOrdenadas.value]
-  if (filtro.value === 'pendientes-elim') {
-    list = list.filter((f) => f.pendientesElim.length > 0 || !f.campeonStatus.completo)
-  } else if (filtro.value === 'sin-campeon') {
-    list = list.filter((f) => !f.campeonStatus.completo)
-  }
-  return list
-})
-
-const filasOrdenadas = computed(() => {
-  const list = [...filas.value]
-  const cmpNombre = (a, b) => a.nombre.localeCompare(b.nombre, 'es')
-
-  switch (ordenPor.value) {
-    case 'nombre':
-      return list.sort(cmpNombre)
-    case 'pctG-desc':
-      return list.sort((a, b) => b.pctG - a.pctG || cmpNombre(a, b))
-    case 'pctG-asc':
-      return list.sort((a, b) => a.pctG - b.pctG || cmpNombre(a, b))
-    case 'pct16-desc':
-      return list.sort((a, b) => b.fases.r32.pct - a.fases.r32.pct || cmpNombre(a, b))
-    case 'pct16-asc':
-      return list.sort((a, b) => a.fases.r32.pct - b.fases.r32.pct || cmpNombre(a, b))
-    case 'pendientes-elim':
-      return list.sort(
-        (a, b) => b.pendientesElim.length - a.pendientesElim.length || cmpNombre(a, b)
-      )
-    case 'pendientes':
-    default:
-      return list.sort((a, b) => {
-        const aPend = a.empezadoGrupos && a.gruposPendientes.length
-        const bPend = b.empezadoGrupos && b.gruposPendientes.length
-        if (aPend !== bPend) return bPend - aPend
-        if (a.gruposPendientes.length !== b.gruposPendientes.length) {
-          return b.gruposPendientes.length - a.gruposPendientes.length
-        }
-        return cmpNombre(a, b)
-      })
-  }
-})
-
-function toggleExpand(id) {
-  expandido.value = expandido.value === id ? null : id
+function actualizarPartidosHoy() {
+  const todos = partidosListadoPredicciones([...partidosG.value, ...partidosE.value])
+  const claveHoy = claveArgentinaOffset(0)
+  partidosHoy.value = partidosDelDia(todos, claveHoy).filter(
+    (p) => p.fase === 'grupos' || cruceEliminatoriaCompleto(p)
+  )
 }
 
-function estadoPartido(item) {
-  if (item.estado === 'incompleta') return `Incompleto (${item.detalle})`
-  return 'Sin cargar'
-}
-
-function pctClass(pct) {
-  if (pct >= 100) return 'progress-pct--ok'
-  if (pct >= 50) return 'progress-pct--mid'
-  return 'progress-pct--low'
-}
-
-function faseCellClass(faseStat) {
-  if (!faseStat.activa) return 'progress-elim-fase--na'
-  if (faseStat.pct >= 100) return 'progress-elim-fase--ok'
-  if (faseStat.done > 0) return 'progress-elim-fase--mid'
-  return 'progress-elim-fase--empty'
-}
-
-function faseCellDisplay(faseStat) {
-  if (!faseStat.activa) return '—'
-  return `${faseStat.done}/${faseStat.total}`
-}
-
-function equipoCellClass(cargado) {
-  return cargado ? 'progress-elim-equipo--ok' : 'progress-elim-equipo--pend'
-}
-
-function barWidth(pct) {
-  return `${Math.min(100, Math.max(0, pct))}%`
+function onVisibilidad() {
+  if (document.visibilityState === 'visible') cargar()
 }
 
 async function cargar() {
-  if (!supabaseConfigured) return
-
-  const { data: participantes } = await supabase
-    .from('participantes_list')
-    .select('id, nombre')
-    .eq('activo', true)
-
-  participanteIds.value = (participantes || []).map((p) => p.id)
-
-  const { data: partidosG } = await supabase
-    .from('partidos')
-    .select('id, grupo, equipo_local, equipo_visitante, orden, external_id')
-    .eq('fase', 'grupos')
-    .order('orden')
-
-  const { data: partidosElim } = await supabase
-    .from('partidos')
-    .select('id, fase, ronda, equipo_local, equipo_visitante, orden, external_id')
-    .neq('fase', 'grupos')
-    .order('orden')
-
-  partidosE.value = partidosElim || []
-
-  const preds = await fetchAllRows(
-    supabase,
-    'predicciones',
-    'participante_id, partido_id, goles_local, goles_visitante, penales, ganador_penales'
-  )
-
-  const { data: campeones } = await supabase
-    .from('prediccion_campeon')
-    .select('participante_id, equipo, finalista_1, finalista_2')
-
-  duplicadosDb.value = detectarDuplicados(partidosG)
-
-  const predMapPorParticipante = {}
-  for (const pr of preds) {
-    if (!predMapPorParticipante[pr.participante_id]) predMapPorParticipante[pr.participante_id] = {}
-    predMapPorParticipante[pr.participante_id][pr.partido_id] = pr
+  if (!supabaseConfigured) {
+    loading.value = false
+    return
   }
 
-  for (const p of participantes || []) {
-    const predMap = predMapPorParticipante[p.id] || {}
-    predMapPorParticipante[p.id] = mapPrediccionesACanonica(partidosG, predMap)
+  try {
+    const { data: participantes } = await supabase
+      .from('participantes_list')
+      .select('id, nombre')
+      .eq('activo', true)
+
+    const { data: ptsG } = await supabase
+      .from('partidos')
+      .select('id, grupo, equipo_local, equipo_visitante, orden, external_id, fecha, fase')
+      .eq('fase', 'grupos')
+      .order('orden')
+
+    const { data: ptsE } = await supabase
+      .from('partidos')
+      .select('id, fase, ronda, equipo_local, equipo_visitante, orden, external_id, fecha')
+      .neq('fase', 'grupos')
+      .order('orden')
+
+    partidosG.value = ptsG || []
+    partidosE.value = ptsE || []
+    actualizarPartidosHoy()
+
+    const preds = await fetchAllRows(
+      supabase,
+      'predicciones',
+      'participante_id, partido_id, goles_local, goles_visitante, penales, ganador_penales'
+    )
+
+    const { data: campeones } = await supabase
+      .from('prediccion_campeon')
+      .select('participante_id, equipo, finalista_1, finalista_2')
+
+    duplicadosDb.value = detectarDuplicados(partidosG.value)
+
+    const predMapPorParticipante = {}
+    for (const pr of preds) {
+      if (!predMapPorParticipante[pr.participante_id]) {
+        predMapPorParticipante[pr.participante_id] = {}
+      }
+      predMapPorParticipante[pr.participante_id][pr.partido_id] = pr
+    }
+
+    for (const p of participantes || []) {
+      const predMap = predMapPorParticipante[p.id] || {}
+      predMapPorParticipante[p.id] = mapPrediccionesACanonica(partidosG.value, predMap)
+    }
+
+    const predsReparadas = Object.entries(predMapPorParticipante).flatMap(([pid, map]) =>
+      Object.values(map).map((pr) => ({ ...pr, participante_id: pid }))
+    )
+
+    filas.value = (participantes || []).map((p) => {
+      const predsP = predsReparadas.filter((pr) => pr.participante_id === p.id)
+      const camp = (campeones || []).find((c) => c.participante_id === p.id) || null
+      const campeonStatus = statusCampeon(camp)
+
+      return {
+        id: p.id,
+        nombre: p.nombre,
+        campeonStatus,
+        hoyStatus: calcularHoyStatus(predsP),
+      }
+    })
+
+    ultimaActualizacion.value = Date.now()
+  } catch (e) {
+    console.error(e)
+  } finally {
+    loading.value = false
   }
-
-  const predsReparadas = Object.entries(predMapPorParticipante).flatMap(([pid, map]) =>
-    Object.values(map).map((pr) => ({ ...pr, participante_id: pid }))
-  )
-
-  const gruposStats = countGruposCompletas(partidosG, [])
-  const totalG = gruposStats.total
-  const predeciblesE = partidosPredeciblesEliminatorias(partidosE.value)
-  const totalE = predeciblesE.length
-  const idsE = new Set(predeciblesE.map((p) => p.id))
-
-  filas.value = (participantes || []).map((p) => {
-    const predsP = predsReparadas.filter((pr) => pr.participante_id === p.id)
-    const { done: doneG } = countGruposCompletas(partidosG, predsP)
-    const doneE = countCompletas(predsP, idsE)
-    const camp = (campeones || []).find((c) => c.participante_id === p.id) || null
-    const campeonStatus = statusCampeon(camp)
-    const { empezadoGrupos, gruposPendientes } = gruposPendientesPorParticipante(partidosG, predsP)
-    const partidosPendientes = listPartidosPendientes(partidosG, predsP)
-    const pendientesElim = listEliminatoriasPendientes(partidosE.value, predsP)
-    const detalleElim = listEliminatoriasDetalle(partidosE.value, predsP)
-    const detallePorFase = agruparDetalleElimPorFase(detalleElim)
-
-    const fases = {}
-    for (const meta of FASES_ELIM_PROGRESO) {
-      fases[meta.fase] = progresoPorFase(partidosE.value, predsP, meta.fase)
-    }
-
-    const pctG = progressPct(doneG, totalG)
-    const pctE = progressPct(doneE, totalE)
-
-    return {
-      id: p.id,
-      nombre: p.nombre,
-      grupos: badgeGrupos(doneG, totalG),
-      eliminatorias: doneE >= totalE && campeonStatus.completo ? 'Completo' : doneE ? 'En curso' : 'Sin empezar',
-      pctG,
-      pctE,
-      doneG,
-      totalG,
-      doneE,
-      totalE,
-      empezadoGrupos,
-      gruposPendientes,
-      partidosPendientes,
-      pendientesElim,
-      detalleElim,
-      detallePorFase,
-      fases,
-      campeonStatus,
-      campeonRaw: camp,
-      predsRaw: predsP,
-    }
-  })
 }
 
-defineExpose({ cargar })
+onMounted(() => {
+  cargar()
+  refreshTimer = setInterval(cargar, REFRESH_MS)
+  document.addEventListener('visibilitychange', onVisibilidad)
+})
+
+onUnmounted(() => {
+  clearInterval(refreshTimer)
+  clearTimeout(avisoTimer)
+  document.removeEventListener('visibilitychange', onVisibilidad)
+})
 </script>
 
 <template>
@@ -284,37 +311,48 @@ defineExpose({ cargar })
       <div>
         <h3 class="section-title">Progreso de participantes</h3>
         <p class="text-muted small mb-0">
-          Carga de eliminatorias por fase, finalistas y campeón. Tocá «Actualizar» para cargar datos.
+          Se actualiza solo cada {{ REFRESH_MS / 1000 }} s.
+          <template v-if="ultimaActualizacion">
+            Última sync {{ formatHoraArgentina(new Date(ultimaActualizacion).toISOString()) }} ART.
+          </template>
         </p>
       </div>
-      <button type="button" class="admin-progress-toggle" @click="cargar">Actualizar</button>
     </div>
 
-    <p v-if="!filas.length" class="text-muted small mb-3">
-      Sin datos cargados. Tocá «Actualizar» para ver el progreso del grupo.
-    </p>
-
-    <div v-if="filas.length" class="progress-apurar mb-4">
-      <div class="progress-apurar-head">
-        <strong>Para apurar ({{ listaApurar.length }})</strong>
-        <button
-          type="button"
-          class="admin-progress-toggle"
-          :disabled="!listaApurar.length"
-          @click="copiarListaApurar"
-        >
-          Copiar listado
-        </button>
+    <div class="admin-prog-resumenes mb-3">
+      <div
+        v-if="hayPartidoHoy"
+        class="admin-prog-hoy-banner"
+        :class="resumenHoy?.faltan ? 'admin-prog-hoy-banner--warn' : 'admin-prog-hoy-banner--ok'"
+      >
+        <div class="admin-prog-hoy-banner-main">
+          <strong>{{ tituloHoy }}</strong>
+          <span v-if="resumenHoy">
+            {{ resumenHoy.cargados }} cargaron · {{ resumenHoy.faltan }} faltan
+          </span>
+        </div>
       </div>
-      <p v-if="avisoCopiado" class="progress-apurar-aviso">{{ avisoCopiado }}</p>
-      <ul v-if="listaApurar.length" class="progress-apurar-lista">
-        <li v-for="p in listaApurar" :key="p.nombre">
-          <span class="progress-apurar-nombre">{{ p.nombre }}</span>
-          <span class="progress-apurar-faltas">{{ p.faltas }}</span>
-          <span class="progress-apurar-pct">16av {{ p.pct16 }}%</span>
-        </li>
-      </ul>
-      <p v-else class="progress-apurar-ok">Nadie pendiente en eliminatorias ni final/campeón.</p>
+      <p v-else class="admin-prog-hoy-resumen admin-prog-hoy-resumen--muted small mb-0">
+        {{ tituloHoy }}
+      </p>
+
+      <div
+        class="admin-prog-hoy-banner"
+        :class="resumenFinalistas.faltan ? 'admin-prog-hoy-banner--warn' : 'admin-prog-hoy-banner--ok'"
+      >
+        <div class="admin-prog-hoy-banner-main">
+          <strong>Finalistas y campeón</strong>
+          <span>
+            {{ resumenFinalistas.completos }} completos · {{ resumenFinalistas.faltan }} faltan
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <p v-if="avisoCopiado" class="progress-apurar-aviso">{{ avisoCopiado }}</p>
+
+    <div v-if="loading && !filas.length" class="text-center py-4">
+      <div class="spinner-border spinner-border-sm text-secondary" role="status" />
     </div>
 
     <div v-if="duplicadosDb.length" class="alert alert-warning py-2 mb-3">
@@ -322,258 +360,67 @@ defineExpose({ cargar })
       revisá Admin → Partidos.
     </div>
 
-    <div v-if="filas.length" class="progress-resumen-global mb-4">
-      <div class="progress-resumen-title">Carga total del grupo</div>
-      <p class="text-muted small mb-2">
-        Los % de eliminatorias solo cuentan cruces con ambos equipos definidos.
-      </p>
-      <div class="progress-resumen-grid">
-        <div class="progress-resumen-card">
-          <span class="progress-resumen-label">Grupos</span>
-          <strong :class="pctClass(resumenGlobal.gruposPct)">{{ resumenGlobal.gruposPct }}%</strong>
-        </div>
-        <div
-          v-for="f in resumenGlobal.fases"
-          :key="f.fase"
-          class="progress-resumen-card"
-          :class="{ 'progress-resumen-card--inactive': !f.activa }"
+    <div v-if="filas.length" class="admin-prog-toolbar mb-3">
+      <div class="admin-prog-filter">
+        <label class="progress-sort-label" for="admin-prog-hoy">Partido del día</label>
+        <select
+          id="admin-prog-hoy"
+          v-model="filtroHoy"
+          class="form-select"
+          :disabled="!hayPartidoHoy"
         >
-          <span class="progress-resumen-label">{{ f.label }}</span>
-          <strong v-if="f.activa" :class="pctClass(f.pct)">{{ f.pct }}%</strong>
-          <strong v-else class="progress-resumen-na">—</strong>
-          <span v-if="f.activa" class="progress-resumen-sub">{{ f.done }}/{{ f.total }} preds</span>
-          <span v-else class="progress-resumen-sub">Sin cruces definidos</span>
-        </div>
-        <div class="progress-resumen-card progress-resumen-card--campeon">
-          <span class="progress-resumen-label">Final / campeón</span>
-          <strong :class="pctClass(resumenGlobal.campeon.pct)">{{ resumenGlobal.campeon.pct }}%</strong>
-          <span class="progress-resumen-sub">
-            F1 {{ resumenGlobal.campeon.finalista1 }}% · F2 {{ resumenGlobal.campeon.finalista2 }}% ·
-            🏆 {{ resumenGlobal.campeon.campeon }}%
-          </span>
-        </div>
-      </div>
-    </div>
-
-    <div class="progress-filters mb-3">
-      <div class="progress-sort">
-        <label class="progress-sort-label" for="progress-fase">Ver fase</label>
-        <select id="progress-fase" v-model="faseVista" class="form-select">
-          <option value="todas">Todas las fases</option>
-          <option v-for="meta in FASES_ELIM_PROGRESO" :key="meta.fase" :value="meta.fase">
-            {{ meta.label }}
+          <option
+            v-for="op in opcionesFiltroHoy"
+            :key="op.value"
+            :value="op.value"
+            :disabled="op.value !== 'todos' && !hayPartidoHoy"
+          >
+            {{ op.label }}
           </option>
         </select>
       </div>
-      <div class="progress-sort">
-        <label class="progress-sort-label" for="progress-sort">Ordenar</label>
-        <select id="progress-sort" v-model="ordenPor" class="form-select">
-          <option value="pendientes-elim">Más eliminatorias pendientes</option>
-          <option value="pendientes">Más grupos pendientes</option>
-          <option value="pct16-desc">% 16avos (mayor → menor)</option>
-          <option value="pct16-asc">% 16avos (menor → mayor)</option>
-          <option value="nombre">Nombre (A → Z)</option>
-          <option value="pctG-desc">% Grupos (mayor → menor)</option>
-          <option value="pctG-asc">% Grupos (menor → mayor)</option>
+      <div class="admin-prog-filter">
+        <label class="progress-sort-label" for="admin-prog-final">Finalistas y campeón</label>
+        <select id="admin-prog-final" v-model="filtroFinalistas" class="form-select">
+          <option v-for="op in opcionesFiltroFinalistas" :key="op.value" :value="op.value">
+            {{ op.label }}
+          </option>
         </select>
       </div>
-      <div class="progress-sort">
-        <label class="progress-sort-label" for="progress-filter">Filtrar</label>
-        <select id="progress-filter" v-model="filtro" class="form-select">
-          <option value="todos">Todos</option>
-          <option value="pendientes-elim">Con eliminatorias o final pendiente</option>
-          <option value="sin-campeon">Sin finalistas/campeón completo</option>
-        </select>
-      </div>
+      <button
+        type="button"
+        class="admin-progress-toggle admin-progress-toggle--primary"
+        :disabled="!filasVisibles.length"
+        @click="copiarTexto(textoCopiarFiltrado)"
+      >
+        Copiar listado filtrado ({{ filasVisibles.length }})
+      </button>
     </div>
 
-    <div v-if="filasFiltradas.length" class="progress-elim-table-wrap">
-      <table class="progress-elim-table">
-        <thead>
-          <tr>
-            <th class="progress-elim-th-nombre">Participante</th>
-            <th class="progress-elim-th-grupos" title="Grupos">G</th>
-            <th
-              v-for="meta in fasesVisibles"
-              :key="meta.fase"
-              class="progress-elim-th-fase"
-              :title="meta.label"
-            >
-              {{ meta.short }}
-            </th>
-            <th class="progress-elim-th-equipo">Finalista 1</th>
-            <th class="progress-elim-th-equipo">Finalista 2</th>
-            <th class="progress-elim-th-equipo">Campeón</th>
-            <th class="progress-elim-th-accion"></th>
-          </tr>
-        </thead>
-        <tbody>
-          <template v-for="f in filasFiltradas" :key="f.id">
-            <tr
-              class="progress-elim-row"
-              :class="{ 'progress-elim-row--open': expandido === f.id }"
-            >
-              <td class="progress-elim-nombre">
-                <strong>{{ f.nombre }}</strong>
-                <span v-if="f.pendientesElim.length" class="progress-elim-pend-badge">
-                  {{ f.pendientesElim.length }} pend.
-                </span>
-              </td>
-              <td class="progress-elim-grupos" :title="`Grupos ${f.doneG}/${f.totalG}`">
-                <span class="progress-pct" :class="pctClass(f.pctG)">{{ f.pctG }}%</span>
-              </td>
-              <td
-                v-for="meta in fasesVisibles"
-                :key="meta.fase"
-                class="progress-elim-fase"
-                :class="faseCellClass(f.fases[meta.fase])"
-                :title="
-                  f.fases[meta.fase].activa
-                    ? `${meta.label}: ${f.fases[meta.fase].done}/${f.fases[meta.fase].total}`
-                    : `${meta.label}: sin cruces definidos`
-                "
-              >
-                <span class="progress-elim-fase-frac">
-                  {{ faseCellDisplay(f.fases[meta.fase]) }}
-                </span>
-                <span v-if="f.fases[meta.fase].activa" class="progress-elim-bar">
-                  <span
-                    class="progress-elim-bar-fill"
-                    :style="{ width: barWidth(f.fases[meta.fase].pct) }"
-                  />
-                </span>
-              </td>
-              <td
-                class="progress-elim-equipo"
-                :class="equipoCellClass(f.campeonStatus.finalista1)"
-              >
-                {{ f.campeonStatus.finalista1Nombre || '—' }}
-              </td>
-              <td
-                class="progress-elim-equipo"
-                :class="equipoCellClass(f.campeonStatus.finalista2)"
-              >
-                {{ f.campeonStatus.finalista2Nombre || '—' }}
-              </td>
-              <td
-                class="progress-elim-equipo progress-elim-equipo--campeon"
-                :class="equipoCellClass(f.campeonStatus.campeon)"
-              >
-                {{ f.campeonStatus.campeonNombre || '—' }}
-              </td>
-              <td class="progress-elim-accion">
-                <button
-                  type="button"
-                  class="admin-progress-toggle"
-                  @click="toggleExpand(f.id)"
-                >
-                  {{ expandido === f.id ? '▲' : '▼' }}
-                </button>
-              </td>
-            </tr>
-
-            <tr v-if="expandido === f.id" class="progress-elim-detail-row">
-              <td :colspan="fasesVisibles.length + 6">
-                <div class="progress-elim-detail">
-                  <div class="progress-final-card">
-                    <div class="progress-final-card-title">Final y campeón</div>
-                    <div class="progress-final-grid">
-                      <div
-                        class="progress-final-slot"
-                        :class="{ 'progress-final-slot--ok': f.campeonStatus.finalista1 }"
-                      >
-                        <span class="progress-final-slot-label">Finalista 1</span>
-                        <span class="progress-final-slot-value">
-                          {{ f.campeonStatus.finalista1Nombre || 'Sin cargar' }}
-                        </span>
-                      </div>
-                      <div
-                        class="progress-final-slot"
-                        :class="{ 'progress-final-slot--ok': f.campeonStatus.finalista2 }"
-                      >
-                        <span class="progress-final-slot-label">Finalista 2</span>
-                        <span class="progress-final-slot-value">
-                          {{ f.campeonStatus.finalista2Nombre || 'Sin cargar' }}
-                        </span>
-                      </div>
-                      <div
-                        class="progress-final-slot progress-final-slot--campeon"
-                        :class="{ 'progress-final-slot--ok': f.campeonStatus.campeon }"
-                      >
-                        <span class="progress-final-slot-label">Campeón</span>
-                        <span class="progress-final-slot-value">
-                          {{ f.campeonStatus.campeonNombre || 'Sin cargar' }}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div
-                    v-for="grupo in detallePorFaseFiltrado(f)"
-                    :key="grupo.fase"
-                    class="progress-fase-block"
-                  >
-                    <div class="progress-fase-block-head">
-                      <span class="progress-fase-block-title">{{ grupo.faseLabel }}</span>
-                      <span
-                        class="progress-fase-block-stat"
-                        :class="pctClass(progressPct(grupo.done, grupo.total))"
-                      >
-                        {{ grupo.done }}/{{ grupo.total }}
-                        <template v-if="grupo.total"> ({{ progressPct(grupo.done, grupo.total) }}%)</template>
-                      </span>
-                    </div>
-                    <div class="progress-fase-matches">
-                      <div
-                        v-for="m in grupo.items"
-                        :key="m.partido_id"
-                        class="progress-fase-match"
-                        :class="{ 'progress-fase-match--pend': !m.completa }"
-                      >
-                        <div class="progress-fase-match-main">
-                          <span class="progress-fase-match-ronda">{{ m.ronda || '—' }}</span>
-                          <span class="progress-fase-match-teams">
-                            {{ m.equipo_local }} vs {{ m.equipo_visitante }}
-                          </span>
-                        </div>
-                        <div class="progress-fase-match-pred">
-                          <span v-if="m.completa" class="progress-detalle-ok">{{ m.resumen }}</span>
-                          <span v-else-if="m.empezada" class="progress-detalle-warn">Incompleto</span>
-                          <span v-else class="progress-detalle-pend">Sin cargar</span>
-                          <span
-                            v-if="m.completa && m.penales"
-                            class="progress-detalle-pen"
-                          >
-                            pen.
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div v-if="f.partidosPendientes.length" class="progress-partidos-pendientes">
-                    <span class="progress-grupos-label">
-                      Grupos pendientes ({{ f.partidosPendientes.length }})
-                    </span>
-                    <div
-                      v-for="m in f.partidosPendientes"
-                      :key="m.partido_id"
-                      class="progress-partido-item"
-                    >
-                      <span class="progress-partido-grupo">{{ m.grupo }}</span>
-                      <span class="progress-partido-teams">
-                        {{ m.equipo_local }} vs {{ m.equipo_visitante }}
-                      </span>
-                      <span class="progress-partido-estado">{{ estadoPartido(m) }}</span>
-                    </div>
-                  </div>
-                </div>
-              </td>
-            </tr>
-          </template>
-        </tbody>
-      </table>
-    </div>
+    <ul v-if="filasVisibles.length" class="admin-prog-lista">
+      <li class="admin-prog-item admin-prog-item--head admin-prog-item--simple" aria-hidden="true">
+        <span class="admin-prog-nombre">Participante</span>
+        <span class="admin-prog-hoy">Partido del día</span>
+        <span class="admin-prog-final">Finalistas y campeón</span>
+      </li>
+      <li v-for="f in filasVisibles" :key="f.id" class="admin-prog-item admin-prog-item--simple">
+        <span class="admin-prog-nombre">{{ f.nombre }}</span>
+        <span
+          class="admin-prog-hoy"
+          :class="estadoClass(f.hoyStatus.tipo)"
+          :title="f.hoyStatus.title"
+        >
+          {{ f.hoyStatus.texto }}
+        </span>
+        <span
+          class="admin-prog-final"
+          :class="estadoClass(estadoFinalistas(f).tipo)"
+          :title="estadoFinalistas(f).texto"
+        >
+          {{ estadoFinalistas(f).texto }}
+        </span>
+      </li>
+    </ul>
 
     <p v-else-if="filas.length" class="text-muted small">
       Ningún participante coincide con el filtro actual.
