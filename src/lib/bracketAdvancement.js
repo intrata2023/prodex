@@ -4,10 +4,6 @@ import { ganadorRealPartido } from './scoring.js'
 
 const FASE_ORDEN = { grupos: 0, r32: 1, r16: 2, qf: 3, sf: 4, final: 5 }
 
-export const ELIM_FIFA_NUMBERS = Object.keys(FIFA_SLOT_LABELS)
-  .map(Number)
-  .sort((a, b) => a - b)
-
 export function buildWinnerDestinations() {
   const map = new Map()
   for (const [destStr, slot] of Object.entries(FIFA_SLOT_LABELS)) {
@@ -30,10 +26,6 @@ export function findPartidoByFifaNo(partidos, fifaNo) {
   return null
 }
 
-export function esPartidoTercerPuesto(partido) {
-  return partido?.ronda?.toLowerCase().includes('tercer')
-}
-
 export function resultadoCompleto(partido, resultado) {
   if (!resultado || resultado.goles_local == null || resultado.goles_visitante == null) {
     return false
@@ -52,117 +44,6 @@ export function partidosPendientesResultado(partidos, resultadosMap) {
       const fb = FASE_ORDEN[b.fase] ?? 99
       return fa - fb || (a.orden ?? 0) - (b.orden ?? 0)
     })
-}
-
-function resolverSlotEquipo(label, partidos, resultadosMap, resolved) {
-  const gan = String(label).match(/Gan\.?\s*M(\d+)/i)
-  if (!gan) return label
-
-  const sourceNo = Number(gan[1])
-  const sourcePartido = findPartidoByFifaNo(partidos, sourceNo)
-  if (!sourcePartido) return label
-
-  const sourceTeams = resolved.get(sourceNo)
-  if (!sourceTeams) return label
-
-  const virtual = {
-    ...sourcePartido,
-    equipo_local: sourceTeams.local,
-    equipo_visitante: sourceTeams.visitante,
-  }
-  const res = resultadosMap?.[sourcePartido.id]
-  if (resultadoCompleto(virtual, res)) {
-    const winner = ganadorRealPartido(virtual, res)
-    if (winner) return winner
-  }
-  return label
-}
-
-/** Equipos resueltos por slot FIFA según resultados actuales (incluye revertir a placeholders). */
-export function buildEquiposCuadroResueltos(partidos, resultadosMap) {
-  const resolved = new Map()
-
-  for (const fifaNo of ELIM_FIFA_NUMBERS) {
-    const partido = findPartidoByFifaNo(partidos, fifaNo)
-    const slot = FIFA_SLOT_LABELS[fifaNo]
-    if (!slot) continue
-
-    if (fifaNo < 89) {
-      if (partido) {
-        resolved.set(fifaNo, {
-          local: partido.equipo_local,
-          visitante: partido.equipo_visitante,
-        })
-      }
-      continue
-    }
-
-    resolved.set(fifaNo, {
-      local: resolverSlotEquipo(slot.local, partidos, resultadosMap, resolved),
-      visitante: resolverSlotEquipo(slot.visitante, partidos, resultadosMap, resolved),
-    })
-  }
-
-  return resolved
-}
-
-/** Todos los cambios necesarios en octavos+ para reflejar resultados (avance y retroceso). */
-export function listarSyncCuadro(partidos, resultadosMap) {
-  const resolved = buildEquiposCuadroResueltos(partidos, resultadosMap)
-  const updates = []
-
-  for (const partido of partidos || []) {
-    if (partido.fase === 'grupos' || esPartidoTercerPuesto(partido)) continue
-
-    const fifaNo = fifaMatchNo(partido)
-    if (!fifaNo || fifaNo < 89) continue
-
-    const desired = resolved.get(fifaNo)
-    if (!desired) continue
-
-    if (partido.equipo_local !== desired.local) {
-      updates.push({
-        partidoId: partido.id,
-        field: 'equipo_local',
-        equipo: desired.local,
-        destPartido: partido,
-        destFifaNo: fifaNo,
-      })
-    }
-    if (partido.equipo_visitante !== desired.visitante) {
-      updates.push({
-        partidoId: partido.id,
-        field: 'equipo_visitante',
-        equipo: desired.visitante,
-        destPartido: partido,
-        destFifaNo: fifaNo,
-      })
-    }
-  }
-
-  return updates
-}
-
-export function calcularCampeonDesdeCuadro(partidos, resultadosMap, resolved = null) {
-  const map = resolved || buildEquiposCuadroResueltos(partidos, resultadosMap)
-  const finalPartido = (partidos || []).find(
-    (p) => p.fase === 'final' && !esPartidoTercerPuesto(p)
-  )
-  if (!finalPartido) return null
-
-  const fifaNo = fifaMatchNo(finalPartido)
-  const teams = fifaNo ? map.get(fifaNo) : null
-  const virtual = teams
-    ? {
-        ...finalPartido,
-        equipo_local: teams.local,
-        equipo_visitante: teams.visitante,
-      }
-    : finalPartido
-
-  const res = resultadosMap?.[finalPartido.id]
-  if (!resultadoCompleto(virtual, res)) return null
-  return ganadorRealPartido(virtual, res)
 }
 
 export function calcularAvanceCuadro(partido, resultado, partidos) {
@@ -194,7 +75,19 @@ export function calcularAvanceCuadro(partido, resultado, partidos) {
   }
 }
 
-/** @deprecated Usar listarSyncCuadro para sincronización bidireccional. */
 export function listarAvancesCuadro(partidos, resultadosMap) {
-  return listarSyncCuadro(partidos, resultadosMap)
+  const updates = []
+  const seen = new Set()
+
+  for (const p of partidos || []) {
+    if (p.fase === 'grupos') continue
+    const avance = calcularAvanceCuadro(p, resultadosMap?.[p.id], partidos)
+    if (!avance) continue
+    const key = `${avance.partidoId}:${avance.field}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    updates.push(avance)
+  }
+
+  return updates
 }
