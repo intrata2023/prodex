@@ -288,6 +288,7 @@ body {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.5rem;
+  align-items: stretch;
 }
 
 .home-hoy-link--pill {
@@ -305,6 +306,30 @@ body {
   text-align: center;
   color: var(--text-muted);
   text-decoration: none;
+}
+
+.home-hoy-link--pill-campeon {
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.2rem;
+  padding: 0.45rem 0.4rem;
+  min-height: 2.875rem;
+}
+
+.home-hoy-pill-label {
+  display: block;
+  font-size: 0.6875rem;
+  line-height: 1.15;
+  max-width: 100%;
+}
+
+.home-hoy-pill-tag {
+  display: block;
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
 .home-hoy-link--pill:hover,
@@ -335,12 +360,6 @@ body {
   color: rgba(255, 255, 255, 0.45);
   border-color: rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.03);
-}
-
-.home-hoy-pill-tag {
-  margin-left: 0.15rem;
-  font-size: 0.6875rem;
-  font-weight: 600;
 }
 
 .home-hoy-pill-tag--warn {

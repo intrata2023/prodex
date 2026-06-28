@@ -254,14 +254,14 @@ async function cargar() {
         </RouterLink>
         <RouterLink
           to="/eliminatorias#finalistas-campeon"
-          class="home-hoy-link home-hoy-link--pill"
+          class="home-hoy-link home-hoy-link--pill home-hoy-link--pill-campeon"
           :class="{
             'home-hoy-link--pill-warn': !campeonBloqueado && !campeonStatus.completo,
             'home-hoy-link--pill-ok': !campeonBloqueado && campeonStatus.completo,
             'home-hoy-link--pill-locked': campeonBloqueado,
           }"
         >
-          Finalistas y campeón
+          <span class="home-hoy-pill-label">Finalistas y campeón</span>
           <span
             class="home-hoy-pill-tag"
             :class="{
@@ -270,7 +270,7 @@ async function cargar() {
               'home-hoy-pill-tag--muted': campeonBloqueado,
             }"
           >
-            ({{ campeonStatus.completo ? 'completado' : 'incompleto' }})
+            {{ campeonStatus.completo ? 'Completado' : 'Incompleto' }}
           </span>
         </RouterLink>
       </div>

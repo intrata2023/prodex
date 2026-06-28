@@ -1,7 +1,8 @@
 import {
   resultadoCompleto,
   calcularAvanceCuadro,
-  listarAvancesCuadro,
+  listarSyncCuadro,
+  buildEquiposCuadroResueltos,
 } from './bracketAdvancement.js'
 import { ganadorRealPartido } from './scoring.js'
 
@@ -63,7 +64,17 @@ console.assert(
   'ganador en 90 min avanza'
 )
 
-const avances = listarAvancesCuadro(partidos, { m73: resPenales })
+const avances = listarSyncCuadro(partidos, { m73: resPenales })
 console.assert(avances.length === 1 && avances[0].equipo === 'Argentina', 'lista avances')
+
+m90.equipo_local = 'Argentina'
+const revert = listarSyncCuadro(partidos, {})
+console.assert(
+  revert.some((u) => u.partidoId === 'm90' && u.field === 'equipo_local' && u.equipo === 'Gan. M73'),
+  'borrar resultado revierte octavos a placeholder'
+)
+
+const resolved = buildEquiposCuadroResueltos(partidos, { m73: resWin })
+console.assert(resolved.get(90)?.local === 'Argentina', 'equipos resueltos octavos')
 
 console.log('bracketAdvancement.test.js OK')

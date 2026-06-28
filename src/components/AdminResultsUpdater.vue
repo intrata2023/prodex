@@ -7,10 +7,10 @@ import {
   fetchAllResultados,
   mapResultadosPorPartido,
 } from '../lib/dataLoaders.js'
-import { calcularTodosLosPuntos, ganadorRealPartido } from '../lib/scoring.js'
+import { calcularTodosLosPuntos } from '../lib/scoring.js'
 import {
-  listarAvancesCuadro,
-  calcularAvanceCuadro,
+  listarSyncCuadro,
+  calcularCampeonDesdeCuadro,
   resultadoCompleto,
 } from '../lib/bracketAdvancement.js'
 import { useAdminPin } from '../composables/useAdminPin.js'
@@ -143,10 +143,9 @@ async function cargar() {
 }
 
 async function sincronizarCuadroDesdeResultados({ silencioso = false } = {}) {
-  const avances = listarAvancesCuadro(partidos.value, resultados.value)
-  if (!avances.length) return 0
-
+  const avances = listarSyncCuadro(partidos.value, resultados.value)
   const pin = requireAdminPin()
+
   for (const av of avances) {
     await supabase.rpc('admin_update_partido', {
       p_admin_pin: pin,
@@ -157,8 +156,23 @@ async function sincronizarCuadroDesdeResultados({ silencioso = false } = {}) {
     if (dest) dest[av.field] = av.equipo
   }
 
+  const campeon = calcularCampeonDesdeCuadro(partidos.value, resultados.value)
+  await supabase.rpc('admin_update_config', {
+    p_admin_pin: pin,
+    p_grupos_abiertos: null,
+    p_eliminatorias_abiertos: null,
+    p_monto_por_persona: null,
+    p_campeon_real: campeon,
+  })
+
   if (!silencioso) {
-    mensaje.value = `Cuadro actualizado: ${avances.length} equipo${avances.length === 1 ? '' : 's'} en la fase siguiente`
+    if (avances.length) {
+      mensaje.value = `Cuadro actualizado: ${avances.length} cambio${avances.length === 1 ? '' : 's'} según resultados`
+    } else if (campeon) {
+      mensaje.value = `Cuadro sincronizado · Campeón: ${campeon}`
+    } else {
+      mensaje.value = 'Cuadro sincronizado con los resultados actuales'
+    }
   }
   return avances.length
 }
@@ -201,33 +215,15 @@ async function persistirResultado(updated) {
     p_ganador_penales: updated.ganador_penales || null,
   })
 
+  await sincronizarCuadroDesdeResultados({ silencioso: true })
   const partido = partidos.value.find((p) => p.id === updated.partido_id)
+  const campeon = calcularCampeonDesdeCuadro(partidos.value, resultados.value)
   if (partido && resultadoCompleto(partido, updated)) {
-    const avance = calcularAvanceCuadro(partido, updated, partidos.value)
-    if (avance) {
-      await supabase.rpc('admin_update_partido', {
-        p_admin_pin: pin,
-        p_partido_id: avance.partidoId,
-        p_payload: { [av.field]: avance.equipo },
-      })
-      const dest = partidos.value.find((p) => p.id === avance.partidoId)
-      if (dest) dest[avance.field] = avance.equipo
-      mensaje.value = `${avance.equipo} avanza a ${etiquetaFase(dest?.fase || '')}`
-    }
-
-    if (partido.fase === 'final') {
-      const campeon = ganadorRealPartido(partido, updated)
-      if (campeon) {
-        await supabase.rpc('admin_update_config', {
-          p_admin_pin: pin,
-          p_grupos_abiertos: null,
-          p_eliminatorias_abiertos: null,
-          p_monto_por_persona: null,
-          p_campeon_real: campeon,
-        })
-        if (!avance) mensaje.value = `Campeón registrado: ${campeon}`
-      }
-    }
+    mensaje.value = campeon
+      ? `Resultado guardado · Campeón: ${campeon}`
+      : 'Resultado guardado · cuadro actualizado'
+  } else {
+    mensaje.value = 'Resultado guardado · cuadro sincronizado'
   }
 }
 
