@@ -9,6 +9,10 @@ import {
   mapPrediccionesACanonica,
   reparacionesPredicciones,
   letrasGruposIncompletos,
+  progresoPorFase,
+  progresoGlobalFase,
+  prediccionCompletaEliminatoria,
+  prediccionCompletaCruce,
 } from './participantProgress.js'
 
 const partidosG = [
@@ -74,5 +78,48 @@ const incompletos = letrasGruposIncompletos(partidosG, {
   1: { partido_id: 1, goles_local: 1, goles_visitante: 0 },
 })
 console.assert(incompletos.includes('B') && incompletos.includes('L'), 'lista grupos incompletos')
+
+const partidosElim = [
+  { id: 10, fase: 'r32', equipo_local: 'Argentina', equipo_visitante: 'Brasil', orden: 1 },
+  { id: 11, fase: 'r32', equipo_local: '2K', equipo_visitante: 'Croacia', orden: 2 },
+  { id: 12, fase: 'qf', equipo_local: 'Gan. M73', equipo_visitante: 'Gan. M74', orden: 3 },
+  { id: 13, fase: 'qf', equipo_local: 'Francia', equipo_visitante: 'Alemania', orden: 4 },
+]
+
+const r32 = progresoPorFase(partidosElim, [{ partido_id: 10, goles_local: 1, goles_visitante: 0 }], 'r32')
+console.assert(r32.total === 1 && r32.done === 1 && r32.activa, 'r32 solo cuenta cruces completos')
+
+const qf = progresoPorFase(partidosElim, [], 'qf')
+console.assert(qf.total === 1 && qf.activa, 'qf solo un cruce real')
+
+const qfEmpty = progresoPorFase(
+  [{ id: 12, fase: 'qf', equipo_local: 'Gan. M73', equipo_visitante: 'Gan. M74' }],
+  [],
+  'qf'
+)
+console.assert(!qfEmpty.activa && qfEmpty.total === 0, 'qf sin equipos reales = inactiva')
+
+const globalQf = progresoGlobalFase(partidosElim, [], ['u1', 'u2'], 'qf')
+console.assert(globalQf.nPartidos === 1 && globalQf.total === 2, 'global fase usa predecibles')
+
+const pElim = { id: 10, fase: 'r32', equipo_local: 'Argentina', equipo_visitante: 'Brasil' }
+console.assert(
+  !prediccionCompletaEliminatoria({ goles_local: 1, goles_visitante: 1 }),
+  'empate sin penales incompleto'
+)
+console.assert(
+  prediccionCompletaCruce(
+    { goles_local: 1, goles_visitante: 1, penales: true, ganador_penales: 'Argentina' },
+    pElim
+  ),
+  'empate con penales completo'
+)
+
+const r32Empate = progresoPorFase(
+  partidosElim,
+  [{ partido_id: 10, goles_local: 1, goles_visitante: 1 }],
+  'r32'
+)
+console.assert(r32Empate.done === 0, 'empate sin penales no cuenta como hecho')
 
 console.log('participantProgress.test.js OK')

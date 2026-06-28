@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
 import { useAdminPin } from '../composables/useAdminPin.js'
 
@@ -54,13 +54,17 @@ async function cambiarPin(p, pin) {
   mensaje.value = error ? error.message : 'PIN actualizado'
 }
 
-onMounted(cargar)
 defineExpose({ cargar })
 </script>
 
 <template>
   <div>
     <h3 class="section-title">Participantes</h3>
+    <div class="mb-3">
+      <button type="button" class="btn btn-outline-secondary w-100" @click="cargar">
+        Actualizar lista
+      </button>
+    </div>
     <div v-if="mensaje" class="alert alert-secondary py-2">{{ mensaje }}</div>
 
     <form class="stack-form mb-4" @submit.prevent="crear">

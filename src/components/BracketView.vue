@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted } from 'vue'
 import { useTeamCrests } from '../composables/useTeamCrests.js'
-import { sortPartidosCuadro, fifaMatchNo } from '../lib/fifaBracket2026.js'
+import { sortPartidosCuadro } from '../lib/fifaBracket2026.js'
 import { isPlaceholderEquipo } from '../lib/eliminatorias.js'
 
 const RONDAS = [
@@ -21,7 +21,7 @@ const PAD = 10
 
 const props = defineProps({
   partidos: { type: Array, default: () => [] },
-  predicciones: { type: Object, default: () => ({}) },
+  resultados: { type: Object, default: () => ({}) },
 })
 
 const { load, crestsForPartido, crestsLoaded } = useTeamCrests()
@@ -71,7 +71,7 @@ const columnas = computed(() => {
       return {
         partido,
         crests: crestsForPartido(partido),
-        pred: props.predicciones[partido.id] ?? null,
+        resultado: props.resultados[partido.id] ?? null,
         matchIdx,
         roundIdx,
         isPlaceholder: !realMatches[matchIdx],
@@ -112,25 +112,20 @@ const connectorPaths = computed(() => {
   return paths
 })
 
-function score(pred, side) {
-  if (!pred) return null
-  const v = side === 'local' ? pred.goles_local : pred.goles_visitante
+function realScore(resultado, side) {
+  if (!resultado) return null
+  const v = side === 'local' ? resultado.goles_local : resultado.goles_visitante
   return v != null ? v : null
 }
 
-function pasaPorPenales(pred, partido, side) {
-  if (!pred?.penales || !pred.ganador_penales) return false
+function pasaPorPenales(resultado, partido, side) {
+  if (!resultado?.definido_penales || !resultado.ganador_penales) return false
   const equipo = side === 'local' ? partido.equipo_local : partido.equipo_visitante
-  return pred.ganador_penales === equipo
+  return resultado.ganador_penales === equipo
 }
 
 function isPlaceholder(name) {
   return isPlaceholderEquipo(name)
-}
-
-function matchLabel(partido) {
-  const no = fifaMatchNo(partido)
-  return no ? `M${no}` : null
 }
 
 function shortName(name) {
@@ -189,9 +184,6 @@ function shortName(name) {
             }"
             :style="{ top: `${item.top}px`, left: `${item.left}px`, width: `${COL_W}px`, height: `${SLOT_H}px` }"
           >
-            <span v-if="matchLabel(item.partido)" class="bracket-match-no">
-              {{ matchLabel(item.partido) }}
-            </span>
             <div
               class="bracket-team"
               :class="{ 'bracket-team--tbd': isPlaceholder(item.partido.equipo_local) }"
@@ -204,11 +196,11 @@ function shortName(name) {
               />
               <span v-else class="bracket-crest bracket-crest--ph" />
               <span class="bracket-team-name">{{ shortName(item.partido.equipo_local) }}</span>
-              <span v-if="score(item.pred, 'local') != null" class="bracket-score">
-                {{ score(item.pred, 'local') }}
+              <span v-if="realScore(item.resultado, 'local') != null" class="bracket-score">
+                {{ realScore(item.resultado, 'local') }}
               </span>
               <span
-                v-if="pasaPorPenales(item.pred, item.partido, 'local')"
+                v-if="pasaPorPenales(item.resultado, item.partido, 'local')"
                 class="bracket-pen"
                 title="Pasa por penales"
               >
@@ -229,11 +221,11 @@ function shortName(name) {
               <span class="bracket-team-name">{{
                 shortName(item.partido.equipo_visitante)
               }}</span>
-              <span v-if="score(item.pred, 'visitante') != null" class="bracket-score">
-                {{ score(item.pred, 'visitante') }}
+              <span v-if="realScore(item.resultado, 'visitante') != null" class="bracket-score">
+                {{ realScore(item.resultado, 'visitante') }}
               </span>
               <span
-                v-if="pasaPorPenales(item.pred, item.partido, 'visitante')"
+                v-if="pasaPorPenales(item.resultado, item.partido, 'visitante')"
                 class="bracket-pen"
                 title="Pasa por penales"
               >

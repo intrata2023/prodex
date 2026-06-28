@@ -8,11 +8,5 @@
   },
   "rewrites": [
     { "source": "/((?!api/).*)", "destination": "/index.html" }
-  ],
-  "crons": [
-    {
-      "path": "/api/sync-cuadros",
-      "schedule": "0 12 * * *"
-    }
   ]
 }

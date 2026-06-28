@@ -8,7 +8,7 @@ import { useConfig } from '../composables/useConfig.js'
 import { useTeamCrests } from '../composables/useTeamCrests.js'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
 import { aciertoPrediccion } from '../lib/scoring.js'
-import { mostrarPrediccionesContrincantes } from '../lib/eliminatorias.js'
+import { mensajePrediccionContrincante, mostrarPrediccionesContrincantes } from '../lib/eliminatorias.js'
 import {
   fetchAllPartidos,
   fetchAllParticipantesPublic,
@@ -89,6 +89,17 @@ const cargaAbierta = computed(() => {
   })
 })
 
+const mensajeBloqueo = computed(() => {
+  if (!partido.value) return ''
+  return (
+    mensajePrediccionContrincante(partido.value, {
+      eliminatoriasAbiertos: config.value.eliminatorias_abiertos,
+      ahora: ahora.value,
+    }) ||
+    'Las predicciones de los demás se muestran cuando cierra la carga de este cruce (1 h antes del partido).'
+  )
+})
+
 watch(partidoId, cargar)
 
 onMounted(async () => {
@@ -161,12 +172,39 @@ function initial(nombre) {
       <button type="button" class="home-hoy-retry" @click="cargar">Reintentar</button>
     </p>
 
-    <div v-else-if="cargaAbierta" class="pc">
+    <div v-else-if="cargaAbierta && partido" class="pc">
       <NavBackLink to="/dashboard" label="Inicio" />
-      <p class="home-hoy-empty">
-        Las predicciones de los demás se muestran cuando cierra la carga de este cruce
-        (1 h antes del partido).
-      </p>
+
+      <header class="pc-partido pc-partido--bloqueado">
+        <p v-if="partido.fecha" class="pc-hora">
+          {{ formatHoraArgentina(partido.fecha) }} ART
+          <span v-if="partido.grupo"> · Grupo {{ partido.grupo }}</span>
+          <span v-else-if="partido.ronda"> · {{ partido.ronda }}</span>
+        </p>
+        <div class="pc-equipos">
+          <div class="pc-equipo">
+            <img
+              v-if="crests.local"
+              :src="crests.local"
+              class="pc-crest"
+              :alt="partido.equipo_local"
+            />
+            <span class="pc-nombre">{{ partido.equipo_local }}</span>
+          </div>
+          <span class="pc-vs">vs</span>
+          <div class="pc-equipo pc-equipo--away">
+            <span class="pc-nombre">{{ partido.equipo_visitante }}</span>
+            <img
+              v-if="crests.visitante"
+              :src="crests.visitante"
+              class="pc-crest"
+              :alt="partido.equipo_visitante"
+            />
+          </div>
+        </div>
+      </header>
+
+      <p class="pc-bloqueo-msg">{{ mensajeBloqueo }}</p>
     </div>
 
     <div v-else-if="partido" class="pc">

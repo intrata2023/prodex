@@ -17,9 +17,30 @@ export function prediccionCompleta(pr) {
   return pr?.goles_local != null && pr?.goles_visitante != null
 }
 
+/** Eliminatorias: empate requiere ganador por penales. */
+export function prediccionCompletaEliminatoria(pr) {
+  if (pr?.goles_local == null || pr?.goles_visitante == null) return false
+  if (pr.goles_local !== pr.goles_visitante) return true
+  return Boolean(pr.penales && pr.ganador_penales)
+}
+
+export function prediccionCompletaCruce(pr, partido) {
+  if (!partido || partido.fase === 'grupos') return prediccionCompleta(pr)
+  return prediccionCompletaEliminatoria(pr)
+}
+
+export function faltaGanadorPenalesPrediccion(pr, partido) {
+  if (!partido || partido.fase === 'grupos') return false
+  if (pr?.goles_local == null || pr?.goles_visitante == null) return false
+  if (pr.goles_local !== pr.goles_visitante) return false
+  return !pr.penales || !pr.ganador_penales
+}
+
 export function prediccionEmpezada(pr) {
   return pr && (pr.goles_local != null || pr.goles_visitante != null)
 }
+
+import { cruceEliminatoriaCompleto } from './eliminatorias.js'
 
 export function progressPct(done, total) {
   if (!total) return 0
@@ -315,28 +336,42 @@ export function partidosPorFase(partidos, fase) {
   return (partidos || []).filter((p) => p.fase === fase)
 }
 
+/** Partidos de eliminatorias con ambos equipos reales (predecibles). */
+export function partidosPredeciblesPorFase(partidos, fase) {
+  return partidosPorFase(partidos, fase).filter((p) => cruceEliminatoriaCompleto(p))
+}
+
+export function partidosPredeciblesEliminatorias(partidos) {
+  return (partidos || []).filter((p) => p.fase !== 'grupos' && cruceEliminatoriaCompleto(p))
+}
+
 export function progresoPorFase(partidosE, predsP, fase) {
-  const ids = partidosPorFase(partidosE, fase).map((p) => p.id)
-  const total = ids.length
-  const done = countCompletas(predsP, new Set(ids))
-  return { done, total, pct: progressPct(done, total) }
+  const lista = partidosPredeciblesPorFase(partidosE, fase)
+  const total = lista.length
+  const predMap = Object.fromEntries((predsP || []).map((pr) => [pr.partido_id, pr]))
+  const done = lista.filter((p) => prediccionCompletaCruce(predMap[p.id], p)).length
+  return { done, total, pct: progressPct(done, total), activa: total > 0 }
 }
 
 export function progresoGlobalFase(partidosE, predsAll, participanteIds, fase) {
-  const ids = new Set(partidosPorFase(partidosE, fase).map((p) => p.id))
+  const lista = partidosPredeciblesPorFase(partidosE, fase)
+  const partidoById = new Map(lista.map((p) => [p.id, p]))
+  const ids = new Set(lista.map((p) => p.id))
   const nPartidos = ids.size
   const nUsers = participanteIds.length
   const total = nPartidos * nUsers
-  if (!total) return { done: 0, total: 0, pct: 0, nPartidos, nUsers }
+  if (!total) {
+    return { done: 0, total: 0, pct: 0, nPartidos, nUsers, activa: false }
+  }
 
   let done = 0
   const idSet = new Set(participanteIds)
   for (const pr of predsAll || []) {
     if (!idSet.has(pr.participante_id)) continue
-    if (!prediccionCompleta(pr)) continue
+    if (!prediccionCompletaCruce(pr, partidoById.get(pr.partido_id))) continue
     if (ids.has(pr.partido_id)) done++
   }
-  return { done, total, pct: progressPct(done, total), nPartidos, nUsers }
+  return { done, total, pct: progressPct(done, total), nPartidos, nUsers, activa: true }
 }
 
 export function campeonEquipos(campeon) {
@@ -427,9 +462,9 @@ export function listEliminatoriasDetalle(partidosE, predsP, predByPartidoId = nu
   const items = []
 
   for (const meta of FASES_ELIM_PROGRESO) {
-    for (const p of partidosPorFase(partidosE, meta.fase)) {
+    for (const p of partidosPredeciblesPorFase(partidosE, meta.fase)) {
       const pr = map[p.id]
-      const completa = prediccionCompleta(pr)
+      const completa = prediccionCompletaCruce(pr, p)
       items.push({
         fase: meta.fase,
         faseLabel: meta.label,

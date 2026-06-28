@@ -8,6 +8,7 @@ import {
   isPlaceholderEquipo,
   mensajePrediccionContrincante,
   mostrarPrediccionesContrincantes,
+  linkVerTodosContrincantes,
 } from './eliminatorias.js'
 
 const r32 = Array.from({ length: 16 }, (_, i) => ({
@@ -20,6 +21,8 @@ const r32 = Array.from({ length: 16 }, (_, i) => ({
 
 console.assert(!isPlaceholderEquipo('Argentina'))
 console.assert(isPlaceholderEquipo('16avos · Local 1'))
+console.assert(isPlaceholderEquipo('Gan. M73'))
+console.assert(isPlaceholderEquipo('3° A/B/C/D/F'))
 console.assert(!cruceEliminatoriaCompleto({ fase: 'r32', equipo_local: 'Argentina', equipo_visitante: '16avos de final · Visitante 1' }))
 console.assert(cruceEliminatoriaCompleto({ fase: 'r32', equipo_local: 'Argentina', equipo_visitante: 'Francia' }))
 console.assert(cuadroR32Completo(r32))
@@ -42,7 +45,10 @@ console.assert(mostrarPrediccionesContrincantes(elimAbierto, { eliminatoriasAbie
 console.assert(mostrarPrediccionesContrincantes(elimAbierto, { eliminatoriasAbiertos: false, ahora: unaHoraAntes - 1 }))
 console.assert(mostrarPrediccionesContrincantes({ fase: 'grupos', equipo_local: 'A', equipo_visitante: 'B' }))
 console.assert(!mostrarPrediccionesContrincantes({ fase: 'r32', equipo_local: '16avos · Local 1', equipo_visitante: 'Francia' }))
-console.assert(mensajePrediccionContrincante(elimAbierto, { eliminatoriasAbiertos: true, ahora: unaHoraAntes - 1 })?.includes('Disponible desde'))
+console.assert(mensajePrediccionContrincante(elimAbierto, { eliminatoriasAbiertos: true, ahora: unaHoraAntes - 1 })?.includes('1 h antes'))
+console.assert(linkVerTodosContrincantes(elimAbierto))
+console.assert(!linkVerTodosContrincantes({ fase: 'r32', equipo_local: '2K', equipo_visitante: 'Croacia' }))
+console.assert(linkVerTodosContrincantes({ fase: 'grupos', equipo_local: 'A', equipo_visitante: 'B' }))
 
 const base = ['Argentina', 'Francia', 'Brasil', 'Alemania']
 const p1 = { id: 'a', fase: 'r32', equipo_local: 'Argentina', equipo_visitante: 'Por definir' }

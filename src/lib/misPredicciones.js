@@ -1,5 +1,11 @@
-import { prediccionCompleta, indexPartidosGrupos } from './participantProgress.js'
+import {
+  prediccionCompleta,
+  prediccionCompletaCruce,
+  faltaGanadorPenalesPrediccion,
+  indexPartidosGrupos,
+} from './participantProgress.js'
 import { aciertoPrediccion } from './scoring.js'
+import { cruceEliminatoriaCompleto, partidoEdicionCerrada } from './eliminatorias.js'
 
 const SIN_FECHA = 'sin-fecha'
 
@@ -67,6 +73,45 @@ export function partidosDelDia(partidos, claveDia) {
       if (a.fecha && b.fecha) return new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
       return (a.orden ?? 0) - (b.orden ?? 0)
     })
+}
+
+/** Partido que el usuario aún puede cargar (fase abierta y carga no cerrada). */
+export function partidoPredecibleUsuario(
+  partido,
+  { gruposAbiertos = true, eliminatoriasAbiertos = true, ahora = Date.now() } = {}
+) {
+  if (!partido) return false
+  if (partido.fase === 'grupos') return Boolean(gruposAbiertos)
+  if (!eliminatoriasAbiertos) return false
+  if (!cruceEliminatoriaCompleto(partido)) return false
+  if (partidoEdicionCerrada(partido, ahora)) return false
+  return true
+}
+
+/** Estado de carga del día: partidos abiertos vs predicciones completas. */
+export function resumenCargaDia(partidosDelDiaLista, predicciones, opts = {}) {
+  const agenda = (partidosDelDiaLista || []).filter((p) => partidoPredecibleUsuario(p, opts))
+  const partidosPendientes = agenda.filter(
+    (p) => !prediccionCompletaCruce(predicciones[p.id], p)
+  )
+  const partidosCargados = agenda.filter((p) =>
+    prediccionCompletaCruce(predicciones[p.id], p)
+  )
+  return {
+    total: agenda.length,
+    pendientes: partidosPendientes.length,
+    cargados: partidosCargados.length,
+    partidosPendientes,
+    partidosCargados,
+  }
+}
+
+export function etiquetaPartidoPendiente(partido, predicciones) {
+  const base = `${partido.equipo_local} vs ${partido.equipo_visitante}`
+  if (faltaGanadorPenalesPrediccion(predicciones?.[partido.id], partido)) {
+    return `${base} (falta ganador por penales)`
+  }
+  return base
 }
 
 export function partidoTieneResultado(resultado) {

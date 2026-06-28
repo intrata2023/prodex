@@ -9,13 +9,14 @@ import FinalistasCampeonPicker from '../components/FinalistasCampeonPicker.vue'
 import { useSession } from '../composables/useSession.js'
 import { useConfig } from '../composables/useConfig.js'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
-import { fetchAllPartidos } from '../lib/dataLoaders.js'
+import { fetchAllPartidos, fetchAllResultados, mapResultadosPorPartido } from '../lib/dataLoaders.js'
 import {
   campeonEdicionCerrada,
   cruceEliminatoriaCompleto,
   cuadroR32Completo,
   equiposMitadCuadro,
   formatCierreRelativo,
+  linkVerTodosContrincantes,
   mostrarPrediccionesContrincantes,
   partidoEdicionCerrada,
   primerInicioEliminatorias,
@@ -34,6 +35,7 @@ const { config, loadConfig } = useConfig()
 const route = useRoute()
 const partidos = ref([])
 const predicciones = ref({})
+const resultados = ref({})
 const campeon = ref({ equipo: '', finalista_1: '', finalista_2: '' })
 const loading = ref(true)
 const vista = ref('cargar')
@@ -99,11 +101,13 @@ async function cargar() {
   }
   partidos.value = await fetchAllPartidos(supabase)
 
-  const { data: preds } = await supabase
-    .from('predicciones')
-    .select('*')
-    .eq('participante_id', participanteId.value)
+  const [predsRes, resList] = await Promise.all([
+    supabase.from('predicciones').select('*').eq('participante_id', participanteId.value),
+    fetchAllResultados(supabase),
+  ])
+  const { data: preds } = predsRes
   predicciones.value = Object.fromEntries((preds || []).map((p) => [p.partido_id, p]))
+  resultados.value = mapResultadosPorPartido(resList)
 
   const { data: camp } = await supabase
     .from('prediccion_campeon')
@@ -123,10 +127,7 @@ function partidoBloqueado(partido) {
 }
 
 function linkContrincantes(partido) {
-  return mostrarPrediccionesContrincantes(partido, {
-    eliminatoriasAbiertos: config.value.eliminatorias_abiertos,
-    ahora: ahora.value,
-  })
+  return linkVerTodosContrincantes(partido)
 }
 
 function mensajeCierrePartido(partido) {
@@ -236,7 +237,7 @@ function guardarCampeon() {
         />
       </template>
 
-      <BracketView v-else :partidos="partidos" :predicciones="predicciones" />
+      <BracketView v-else :partidos="partidos" :resultados="resultados" />
 
       <p v-if="porRonda.length === 0 && vista === 'cargar'" class="text-muted">
         Aún no hay partidos de eliminatorias. El admin debe traer los cuadros cuando se definan los

@@ -45,6 +45,16 @@ function equipoQuePasa(data, partido, esPrediccion) {
   return null
 }
 
+export function ganadorRealPartido(partido, resultado) {
+  return equipoQuePasa(resultado, partido, false)
+}
+
+export function resultadoEliminatoriaDefinido(partido, real) {
+  if (!real || real.goles_local == null || real.goles_visitante == null) return false
+  if (real.goles_local !== real.goles_visitante) return true
+  return Boolean(real.definido_penales && real.ganador_penales)
+}
+
 export function puntosEliminatoria(pred, real, partido) {
   if (
     real.goles_local == null ||
@@ -54,6 +64,7 @@ export function puntosEliminatoria(pred, real, partido) {
   ) {
     return 0
   }
+  if (!resultadoEliminatoriaDefinido(partido, real)) return 0
   const exacto =
     pred.goles_local === real.goles_local &&
     pred.goles_visitante === real.goles_visitante
@@ -97,6 +108,8 @@ export function aciertoPrediccion(pred, real, partido) {
     if (pts === 1) return { tipo: 'ganador', pts, label: 'Acertaste resultado parcial' }
     return { tipo: 'fallo', pts: 0, label: 'No acertaste' }
   }
+
+  if (!resultadoEliminatoriaDefinido(partido, real)) return null
 
   const pts = puntosEliminatoria(pred, real, partido)
   if (pts === 3) return { tipo: 'exacto', pts, label: 'Acertaste resultado exacto y penales' }
@@ -147,7 +160,7 @@ export function calcularPuntosParticipante({
     if (!pred || !real) continue
     if (partido.fase === 'grupos') {
       grupos += puntosGrupo(pred, real)
-    } else {
+    } else if (resultadoEliminatoriaDefinido(partido, real)) {
       eliminatorias += puntosEliminatoria(pred, real, partido)
     }
   }

@@ -121,7 +121,8 @@ async function cambiarEquipo(partido, lado, raw) {
       </select>
 
       <p v-if="partidosFase.length === 0" class="text-muted small">
-        No hay partidos de esta fase. Usá «Traer cuadros» primero para crear los cruces vacíos.
+        No hay partidos de esta fase. Importá el fixture completo o agregá partidos manualmente
+        en la lista de abajo.
       </p>
 
       <template v-else>

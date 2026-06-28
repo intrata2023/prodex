@@ -12,6 +12,9 @@ export function isPlaceholderEquipo(name) {
   const n = raw.toLowerCase()
   if (n === 'tbd' || n === 'por definir') return true
   if (/^ganador del partido \d+$/i.test(raw)) return true
+  if (/^gan\.?\s*m\d+/i.test(raw)) return true
+  if (/^ganador\s+m\d+/i.test(raw)) return true
+  if (/^3°/i.test(raw)) return true
   if (/^[12][a-l]$/i.test(raw)) return true
   if (/^1[a-l]$/i.test(raw)) return true
   if (/^3[a-l0-9/]+$/i.test(raw) && raw.includes('/')) return true
@@ -102,6 +105,12 @@ export function mostrarPrediccionesContrincantes(
   return !eliminatoriasAbiertos || partidoEdicionCerrada(partido, ahora)
 }
 
+/** Mostrar enlace «Ver todos» (la pantalla puede seguir bloqueada hasta 1 h antes). */
+export function linkVerTodosContrincantes(partido) {
+  if (!partido) return false
+  return cruceEliminatoriaCompleto(partido)
+}
+
 /** Texto cuando la predicción de un rival aún no se puede ver; null si es visible. */
 export function mensajePrediccionContrincante(
   partido,
@@ -112,11 +121,13 @@ export function mensajePrediccionContrincante(
     return null
   }
   if (!cruceEliminatoriaCompleto(partido)) {
-    return 'Disponible cuando estén los dos equipos'
+    return 'Se revela cuando estén los dos equipos del cruce'
   }
   const cierre = formatCierreRelativo(cierreCargaPartidoIso(partido))
-  if (cierre) return `Disponible desde ${cierre} ART`
-  return 'Disponible cuando cierre la carga (1 h antes del partido)'
+  if (cierre) {
+    return `Se revela ${cierre} ART (1 h antes del partido, cuando cierra la carga)`
+  }
+  return 'Se revela 1 h antes del partido, cuando cierra la carga'
 }
 
 export function primerInicioEliminatorias(partidos) {

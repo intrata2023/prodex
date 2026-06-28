@@ -5,6 +5,7 @@ import NavBackLink from '../components/NavBackLink.vue'
 import MisPrediccionRow from '../components/MisPrediccionRow.vue'
 import { useSession } from '../composables/useSession.js'
 import { usePrediccionContrincanteVisibilidad } from '../composables/usePrediccionContrincanteVisibilidad.js'
+import { linkVerTodosContrincantes } from '../lib/eliminatorias.js'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
 import {
   fetchAllPartidos,
@@ -79,7 +80,7 @@ function resumenDiaTexto(resumen) {
       ? ` · ${resumen.ocultas} oculta${resumen.ocultas === 1 ? '' : 's'}`
       : ''
   if (!resumen.conResultado) {
-    return `${resumen.total} ${resumen.total === 1 ? 'partido' : 'partidos'} · sin resultados${ocultasTxt}`
+    return `${resumen.total} ${resumen.total === 1 ? 'partido' : 'partidos'}${ocultasTxt}`
   }
   const partes = [`${resumen.pts} pts`]
   if (resumen.exacto) partes.push(`${resumen.exacto} exacto${resumen.exacto === 1 ? '' : 's'}`)
@@ -89,6 +90,10 @@ function resumenDiaTexto(resumen) {
 
 function toggleRival(id) {
   expandido.value = expandido.value === id ? null : id
+}
+
+function linkContrincantes(partido) {
+  return linkVerTodosContrincantes(partido)
 }
 
 function diaAnterior() {
@@ -268,10 +273,6 @@ async function cargar() {
                   }}
                 </span>
               </template>
-              <template v-else>
-                <span class="home-hoy-stat-sep">·</span>
-                <span>Sin resultados cargados</span>
-              </template>
             </div>
 
             <p v-if="partidosDelRival(rival.id).length === 0" class="home-hoy-empty">
@@ -286,6 +287,7 @@ async function cargar() {
                 :prediccion="prediccionesRival(rival.id)[p.id]"
                 :resultado="resultados[p.id]"
                 :mensaje-prediccion-oculta="mensajePrediccionOculta(p)"
+                :show-contrincantes-link="linkContrincantes(p)"
               />
             </div>
           </div>

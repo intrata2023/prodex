@@ -1,12 +1,12 @@
 <script setup>
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed } from 'vue'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
 import { fetchAllPartidos } from '../lib/dataLoaders.js'
 import { importWorldCupFixture, importWorldCupEliminatorias } from '../lib/syncResults.js'
 import { useAdminPin } from '../composables/useAdminPin.js'
 import AdminCrucesManual from './AdminCrucesManual.vue'
 
-const { requireAdminPin, adminPin } = useAdminPin()
+const { requireAdminPin } = useAdminPin()
 const partidos = ref([])
 const nuevo = ref({
   fase: 'r32',
@@ -21,7 +21,6 @@ const mensaje = ref('')
 const mensajeOk = ref(true)
 const importando = ref(false)
 const importandoCuadros = ref(false)
-const crucesRef = ref(null)
 
 const eliminatoriasCount = computed(
   () => partidos.value.filter((p) => p.fase !== 'grupos').length
@@ -55,6 +54,7 @@ async function crear() {
     p_admin_pin: requireAdminPin(),
     p_payload: payload,
   })
+  mensajeOk.value = !error
   mensaje.value = error ? error.message : 'Partido creado'
   nuevo.value = { ...nuevo.value, equipo_local: '', equipo_visitante: '', external_id: '', grupo: '' }
   await cargar()
@@ -82,82 +82,34 @@ async function importarFixture() {
   mensaje.value = ''
   try {
     const stats = await importWorldCupFixture(supabase, requireAdminPin())
+    mensajeOk.value = true
     mensaje.value = `Fixture importado: ${stats.total} partidos (${stats.grupos} grupos, ${stats.eliminatorias} eliminatorias)`
     await cargar()
   } catch (e) {
+    mensajeOk.value = false
     mensaje.value = e.message
   }
   importando.value = false
 }
 
-function textoCuadrosSync(stats, { automatico = false } = {}) {
-  let texto = automatico ? 'Cuadros sincronizados' : 'Cuadros actualizados'
-  texto +=
-    `: ${stats.total} partidos (${stats.updated} actualizados, ${stats.inserted} nuevos). ` +
-    `${stats.conEquipos} cruces completos`
-  if (stats.conParcial) texto += `, ${stats.conParcial} con un rival confirmado`
-  if (!automatico) texto += '. Mirá «Armar cruces a mano» abajo.'
-  else texto += '.'
-  const pendientes = stats.total - stats.conEquipos - stats.conParcial
-  if (pendientes > 0) {
-    texto += ` Faltan ${pendientes} cruces: la API los completa cuando cierran los grupos correspondientes.`
-  }
-  if (stats.conservados > 0) {
-    texto += ` Se conservaron ${stats.conservados} equipos ya cargados (respuesta parcial de la API).`
-  }
-  const p = stats.promiedos
-  if (p && !p.error) {
-    if (p.updated > 0 || p.inserted > 0) {
-      texto += ` Promiedos: ${p.updated} actualizados`
-      if (p.inserted) texto += `, ${p.inserted} nuevos`
-      texto += ` (${p.localFilled + p.visitanteFilled} equipos).`
-    } else {
-      texto += ' Promiedos: sin cambios (cuadro ya al día).'
-    }
-  } else if (p?.error) {
-    texto += ` Promiedos no disponible: ${p.error}`
-  }
-  return texto
-}
-
-async function sincronizarCuadros({ automatico = false, confirmar = false } = {}) {
+async function importarCuadros() {
   if (importandoCuadros.value) return
-
-  const pin = automatico ? adminPin.value : requireAdminPin()
-  if (!pin) {
-    if (!automatico) {
-      mensajeOk.value = false
-      mensaje.value = 'Sesión admin expirada. Volvé a entrar con tu PIN.'
-    }
-    return
-  }
-
-  if (confirmar) {
-    const ok = confirm(
-      'Trae 16avos, octavos, cuartos, semifinal y final desde la API.\n\n' +
-        'No modifica la fase de grupos. Si el partido ya existe (mismo ID de API), ' +
-        'actualiza equipos y fechas conservando las predicciones cargadas.\n\n¿Continuar?'
-    )
-    if (!ok) return
-  }
+  const ok = confirm(
+    'Trae 16avos, octavos, cuartos, semifinal y final desde la API.\n\n' +
+      'No modifica la fase de grupos. Solo actualiza equipos y fechas de cruces existentes.\n\n¿Continuar?'
+  )
+  if (!ok) return
 
   importandoCuadros.value = true
-  if (!automatico) {
-    mensaje.value = ''
-    mensajeOk.value = true
-  } else {
-    mensajeOk.value = true
-    mensaje.value = 'Sincronizando cuadros desde la API…'
-  }
+  mensaje.value = ''
+  mensajeOk.value = true
   try {
-    const stats = await importWorldCupEliminatorias(supabase, pin)
+    const stats = await importWorldCupEliminatorias(supabase, requireAdminPin())
     mensajeOk.value = true
-    mensaje.value = textoCuadrosSync(stats, { automatico })
+    mensaje.value =
+      `Cuadros actualizados: ${stats.total} partidos (${stats.updated} actualizados, ${stats.inserted} nuevos). ` +
+      `${stats.conEquipos} cruces completos.`
     await cargar()
-    if (!automatico) {
-      await nextTick()
-      crucesRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }
   } catch (e) {
     mensajeOk.value = false
     mensaje.value = e.message
@@ -165,20 +117,30 @@ async function sincronizarCuadros({ automatico = false, confirmar = false } = {}
   importandoCuadros.value = false
 }
 
-async function importarCuadros() {
-  await sincronizarCuadros({ confirmar: true })
-}
-
-onMounted(async () => {
-  await cargar()
-  await sincronizarCuadros({ automatico: true })
-})
 defineExpose({ cargar })
 </script>
 
 <template>
   <div>
     <h3 class="section-title">Partidos</h3>
+    <p class="text-muted small mb-3">
+      Nada se actualiza solo. Usá los botones para traer datos o cargá cruces y partidos a mano.
+    </p>
+
+    <div class="stack-form mb-3">
+      <button type="button" class="btn btn-outline-secondary w-100" @click="cargar">
+        Actualizar lista
+      </button>
+      <button
+        type="button"
+        class="btn btn-outline-primary w-100"
+        :disabled="importandoCuadros"
+        @click="importarCuadros"
+      >
+        {{ importandoCuadros ? 'Trayendo cuadros…' : 'Traer cuadros (eliminatorias)' }}
+      </button>
+    </div>
+
     <div
       v-if="mensaje"
       class="alert py-2"
@@ -187,22 +149,8 @@ defineExpose({ cargar })
       {{ mensaje }}
     </div>
 
-    <button
-      class="btn btn-outline-primary w-100 mb-2"
-      :disabled="importandoCuadros"
-      @click="importarCuadros"
-    >
-      {{ importandoCuadros ? 'Trayendo cuadros…' : 'Traer cuadros (eliminatorias)' }}
-    </button>
-    <p class="text-muted small mb-3">
-      Se sincroniza al entrar al admin y una vez por día en el servidor. También completamos
-      slots vacíos desde Promiedos. Podés forzar con el botón. Solo actualiza 16avos en adelante;
-      la fase de grupos no se toca.
-    </p>
+    <AdminCrucesManual :partidos="partidos" @updated="cargar" />
 
-    <div ref="crucesRef">
-      <AdminCrucesManual :partidos="partidos" @updated="cargar" />
-    </div>
     <p v-if="eliminatoriasCount" class="text-muted small mb-3">
       {{ eliminatoriasCount }} partidos de eliminatorias en la base (16avos → final).
     </p>

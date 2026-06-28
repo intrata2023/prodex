@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
 import { fetchAllRows } from '../lib/fetchAll.js'
 import {
@@ -9,7 +9,7 @@ import {
   gruposPendientesPorParticipante,
   listPartidosPendientes,
   detectarDuplicados,
-  reparacionesPredicciones,
+  mapPrediccionesACanonica,
   badgeGrupos,
   FASES_ELIM_PROGRESO,
   progresoPorFase,
@@ -19,6 +19,7 @@ import {
   listEliminatoriasDetalle,
   listEliminatoriasPendientes,
   agruparDetalleElimPorFase,
+  partidosPredeciblesEliminatorias,
 } from '../lib/participantProgress.js'
 
 const filas = ref([])
@@ -27,8 +28,19 @@ const partidosE = ref([])
 const participanteIds = ref([])
 const ordenPor = ref('pendientes-elim')
 const filtro = ref('pendientes-elim')
+const faseVista = ref('todas')
 const expandido = ref(null)
 const avisoCopiado = ref('')
+
+const fasesVisibles = computed(() => {
+  if (faseVista.value === 'todas') return FASES_ELIM_PROGRESO
+  return FASES_ELIM_PROGRESO.filter((f) => f.fase === faseVista.value)
+})
+
+const detallePorFaseFiltrado = (fila) => {
+  if (faseVista.value === 'todas') return fila.detallePorFase
+  return fila.detallePorFase.filter((g) => g.fase === faseVista.value)
+}
 
 const resumenGlobal = computed(() => {
   const ids = participanteIds.value
@@ -142,10 +154,15 @@ function pctClass(pct) {
 }
 
 function faseCellClass(faseStat) {
-  if (!faseStat.total) return 'progress-elim-fase--na'
+  if (!faseStat.activa) return 'progress-elim-fase--na'
   if (faseStat.pct >= 100) return 'progress-elim-fase--ok'
   if (faseStat.done > 0) return 'progress-elim-fase--mid'
   return 'progress-elim-fase--empty'
+}
+
+function faseCellDisplay(faseStat) {
+  if (!faseStat.activa) return '—'
+  return `${faseStat.done}/${faseStat.total}`
 }
 
 function equipoCellClass(cargado) {
@@ -200,19 +217,7 @@ async function cargar() {
 
   for (const p of participantes || []) {
     const predMap = predMapPorParticipante[p.id] || {}
-    const fixes = reparacionesPredicciones(partidosG, predMap)
-    for (const fix of fixes) {
-      await supabase.rpc('upsert_prediccion', {
-        p_participante_id: p.id,
-        p_partido_id: fix.partido_id,
-        p_goles_local: fix.goles_local,
-        p_goles_visitante: fix.goles_visitante,
-        p_penales: fix.penales ?? false,
-        p_ganador_penales: fix.ganador_penales ?? null,
-      })
-      predMap[fix.partido_id] = { ...fix, participante_id: p.id, partido_id: fix.partido_id }
-    }
-    predMapPorParticipante[p.id] = predMap
+    predMapPorParticipante[p.id] = mapPrediccionesACanonica(partidosG, predMap)
   }
 
   const predsReparadas = Object.entries(predMapPorParticipante).flatMap(([pid, map]) =>
@@ -221,8 +226,9 @@ async function cargar() {
 
   const gruposStats = countGruposCompletas(partidosG, [])
   const totalG = gruposStats.total
-  const totalE = partidosE.value.length
-  const idsE = new Set(partidosE.value.map((p) => p.id))
+  const predeciblesE = partidosPredeciblesEliminatorias(partidosE.value)
+  const totalE = predeciblesE.length
+  const idsE = new Set(predeciblesE.map((p) => p.id))
 
   filas.value = (participantes || []).map((p) => {
     const predsP = predsReparadas.filter((pr) => pr.participante_id === p.id)
@@ -269,7 +275,6 @@ async function cargar() {
   })
 }
 
-onMounted(cargar)
 defineExpose({ cargar })
 </script>
 
@@ -279,12 +284,15 @@ defineExpose({ cargar })
       <div>
         <h3 class="section-title">Progreso de participantes</h3>
         <p class="text-muted small mb-0">
-          Carga de eliminatorias por fase, finalistas y campeón. Expandí una fila para ver cada
-          cruce.
+          Carga de eliminatorias por fase, finalistas y campeón. Tocá «Actualizar» para cargar datos.
         </p>
       </div>
       <button type="button" class="admin-progress-toggle" @click="cargar">Actualizar</button>
     </div>
+
+    <p v-if="!filas.length" class="text-muted small mb-3">
+      Sin datos cargados. Tocá «Actualizar» para ver el progreso del grupo.
+    </p>
 
     <div v-if="filas.length" class="progress-apurar mb-4">
       <div class="progress-apurar-head">
@@ -316,6 +324,9 @@ defineExpose({ cargar })
 
     <div v-if="filas.length" class="progress-resumen-global mb-4">
       <div class="progress-resumen-title">Carga total del grupo</div>
+      <p class="text-muted small mb-2">
+        Los % de eliminatorias solo cuentan cruces con ambos equipos definidos.
+      </p>
       <div class="progress-resumen-grid">
         <div class="progress-resumen-card">
           <span class="progress-resumen-label">Grupos</span>
@@ -325,10 +336,13 @@ defineExpose({ cargar })
           v-for="f in resumenGlobal.fases"
           :key="f.fase"
           class="progress-resumen-card"
+          :class="{ 'progress-resumen-card--inactive': !f.activa }"
         >
           <span class="progress-resumen-label">{{ f.label }}</span>
-          <strong :class="pctClass(f.pct)">{{ f.pct }}%</strong>
-          <span class="progress-resumen-sub">{{ f.done }}/{{ f.total }} preds</span>
+          <strong v-if="f.activa" :class="pctClass(f.pct)">{{ f.pct }}%</strong>
+          <strong v-else class="progress-resumen-na">—</strong>
+          <span v-if="f.activa" class="progress-resumen-sub">{{ f.done }}/{{ f.total }} preds</span>
+          <span v-else class="progress-resumen-sub">Sin cruces definidos</span>
         </div>
         <div class="progress-resumen-card progress-resumen-card--campeon">
           <span class="progress-resumen-label">Final / campeón</span>
@@ -342,6 +356,15 @@ defineExpose({ cargar })
     </div>
 
     <div class="progress-filters mb-3">
+      <div class="progress-sort">
+        <label class="progress-sort-label" for="progress-fase">Ver fase</label>
+        <select id="progress-fase" v-model="faseVista" class="form-select">
+          <option value="todas">Todas las fases</option>
+          <option v-for="meta in FASES_ELIM_PROGRESO" :key="meta.fase" :value="meta.fase">
+            {{ meta.label }}
+          </option>
+        </select>
+      </div>
       <div class="progress-sort">
         <label class="progress-sort-label" for="progress-sort">Ordenar</label>
         <select id="progress-sort" v-model="ordenPor" class="form-select">
@@ -371,7 +394,7 @@ defineExpose({ cargar })
             <th class="progress-elim-th-nombre">Participante</th>
             <th class="progress-elim-th-grupos" title="Grupos">G</th>
             <th
-              v-for="meta in FASES_ELIM_PROGRESO"
+              v-for="meta in fasesVisibles"
               :key="meta.fase"
               class="progress-elim-th-fase"
               :title="meta.label"
@@ -400,16 +423,20 @@ defineExpose({ cargar })
                 <span class="progress-pct" :class="pctClass(f.pctG)">{{ f.pctG }}%</span>
               </td>
               <td
-                v-for="meta in FASES_ELIM_PROGRESO"
+                v-for="meta in fasesVisibles"
                 :key="meta.fase"
                 class="progress-elim-fase"
                 :class="faseCellClass(f.fases[meta.fase])"
-                :title="`${meta.label}: ${f.fases[meta.fase].done}/${f.fases[meta.fase].total}`"
+                :title="
+                  f.fases[meta.fase].activa
+                    ? `${meta.label}: ${f.fases[meta.fase].done}/${f.fases[meta.fase].total}`
+                    : `${meta.label}: sin cruces definidos`
+                "
               >
                 <span class="progress-elim-fase-frac">
-                  {{ f.fases[meta.fase].done }}/{{ f.fases[meta.fase].total }}
+                  {{ faseCellDisplay(f.fases[meta.fase]) }}
                 </span>
-                <span class="progress-elim-bar">
+                <span v-if="f.fases[meta.fase].activa" class="progress-elim-bar">
                   <span
                     class="progress-elim-bar-fill"
                     :style="{ width: barWidth(f.fases[meta.fase].pct) }"
@@ -446,7 +473,7 @@ defineExpose({ cargar })
             </tr>
 
             <tr v-if="expandido === f.id" class="progress-elim-detail-row">
-              <td :colspan="FASES_ELIM_PROGRESO.length + 6">
+              <td :colspan="fasesVisibles.length + 6">
                 <div class="progress-elim-detail">
                   <div class="progress-final-card">
                     <div class="progress-final-card-title">Final y campeón</div>
@@ -482,7 +509,7 @@ defineExpose({ cargar })
                   </div>
 
                   <div
-                    v-for="grupo in f.detallePorFase"
+                    v-for="grupo in detallePorFaseFiltrado(f)"
                     :key="grupo.fase"
                     class="progress-fase-block"
                   >
@@ -493,6 +520,7 @@ defineExpose({ cargar })
                         :class="pctClass(progressPct(grupo.done, grupo.total))"
                       >
                         {{ grupo.done }}/{{ grupo.total }}
+                        <template v-if="grupo.total"> ({{ progressPct(grupo.done, grupo.total) }}%)</template>
                       </span>
                     </div>
                     <div class="progress-fase-matches">

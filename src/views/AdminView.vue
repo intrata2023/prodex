@@ -14,16 +14,17 @@ import { fetchAllParticipantesPublic } from '../lib/dataLoaders.js'
 
 const tab = ref('config')
 const ranking = ref([])
+const rankingCargado = ref(false)
 
 async function cargarRanking() {
   if (!supabaseConfigured) return
   const data = await fetchAllParticipantesPublic(supabase)
   ranking.value = data.map((p, i) => ({ ...p, puesto: i + 1 }))
+  rankingCargado.value = true
 }
 
 function onTabChange(t) {
   tab.value = t
-  if (t === 'ranking') cargarRanking()
 }
 </script>
 
@@ -62,7 +63,7 @@ function onTabChange(t) {
     <div class="panel-card" v-show="tab === 'partidos'">
       <div class="panel-card-body"><AdminMatches /></div>
     </div>
-    <div class="panel-card" v-show="tab === 'resultados'">
+    <div class="panel-card" v-if="tab === 'resultados'">
       <div class="panel-card-body"><AdminResultsUpdater /></div>
     </div>
     <div class="panel-card" v-show="tab === 'predicciones'">
@@ -71,7 +72,13 @@ function onTabChange(t) {
 
     <div class="panel-card" v-show="tab === 'ranking'">
       <div class="panel-card-body">
-        <RankingTable :rows="ranking" show-desglose />
+        <p class="text-muted small mb-3">
+          Nada se carga solo. Tocá «Actualizar ranking» para ver la tabla con desglose.
+        </p>
+        <button type="button" class="btn btn-outline-secondary w-100 mb-3" @click="cargarRanking">
+          Actualizar ranking
+        </button>
+        <RankingTable v-if="rankingCargado" :rows="ranking" show-desglose />
       </div>
     </div>
     <div class="panel-card" v-show="tab === 'sheets'">
