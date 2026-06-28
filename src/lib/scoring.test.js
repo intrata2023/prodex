@@ -24,7 +24,8 @@ console.assert(
     },
     { goles_local: 1, goles_visitante: 1, definido_penales: true, ganador_penales: 'Argentina' },
     partido
-  ) === 3
+  ) === 5,
+  'empate exacto y penales'
 )
 
 console.assert(
@@ -37,7 +38,8 @@ console.assert(
     },
     { goles_local: 1, goles_visitante: 1, definido_penales: true, ganador_penales: 'Argentina' },
     partido
-  ) === 2
+  ) === 2,
+  'empate exacto pero penales errados'
 )
 
 console.assert(
@@ -87,8 +89,27 @@ console.assert(
       ganador_penales: 'Argentina',
     },
     partido
-  ) === 1,
-  'empate distinto pero mismo ganador por penales'
+  ) === 3,
+  'penales correctos sin empate exacto en 90 min'
+)
+
+console.assert(
+  puntosEliminatoria(
+    {
+      goles_local: 0,
+      goles_visitante: 0,
+      penales: true,
+      ganador_penales: 'Argentina',
+    },
+    {
+      goles_local: 1,
+      goles_visitante: 1,
+      definido_penales: true,
+      ganador_penales: 'Argentina',
+    },
+    partido
+  ) === 3,
+  'penales correctos con otro empate en 90 min'
 )
 
 console.assert(

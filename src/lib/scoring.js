@@ -69,18 +69,16 @@ export function puntosEliminatoria(pred, real, partido) {
     pred.goles_local === real.goles_local &&
     pred.goles_visitante === real.goles_visitante
   const empateReal = real.goles_local === real.goles_visitante
-  const empatePred = pred.goles_local === pred.goles_visitante
   const penalesOk =
     empateReal &&
-    empatePred &&
-    exacto &&
     real.definido_penales &&
     pred.penales &&
     pred.ganador_penales &&
     real.ganador_penales &&
     pred.ganador_penales === real.ganador_penales
 
-  if (exacto && penalesOk) return 3
+  if (penalesOk && exacto) return 5
+  if (penalesOk) return 3
   if (exacto) return 2
 
   const pasaPred = equipoQuePasa(pred, partido, true)
@@ -112,9 +110,12 @@ export function aciertoPrediccion(pred, real, partido) {
   if (!resultadoEliminatoriaDefinido(partido, real)) return null
 
   const pts = puntosEliminatoria(pred, real, partido)
-  if (pts === 3) return { tipo: 'exacto', pts, label: 'Acertaste resultado exacto y penales' }
+  if (pts === 5) {
+    return { tipo: 'exacto', pts, label: 'Acertaste empate exacto y ganador por penales' }
+  }
+  if (pts === 3) return { tipo: 'ganador', pts, label: 'Acertaste ganador por penales' }
   if (pts === 2) return { tipo: 'exacto', pts, label: 'Acertaste resultado exacto' }
-  if (pts === 1) return { tipo: 'ganador', pts, label: 'Acertaste resultado parcial' }
+  if (pts === 1) return { tipo: 'ganador', pts, label: 'Acertaste quién pasa de ronda' }
   return { tipo: 'fallo', pts: 0, label: 'No acertaste' }
 }
 

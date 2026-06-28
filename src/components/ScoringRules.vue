@@ -6,19 +6,33 @@
         <h3>Fase de grupos</h3>
         <ul>
           <li><strong>2 pts</strong> — resultado exacto</li>
-          <li><strong>1 pt</strong> — acertás ganador o empate</li>
+          <li><strong>1 pt</strong> — acertás ganador o empate (sin ser exacto)</li>
           <li><strong>0 pts</strong> — no acertás</li>
         </ul>
       </section>
+
       <section class="rules-section">
         <h3>Eliminatorias</h3>
+        <p class="rules-note">Solo suma la mejor opción que cumplas en cada partido.</p>
+
+        <p class="rules-subhead">Partido definido en 90 minutos</p>
         <ul>
-          <li><strong>3 pts</strong> — resultado exacto y acertás quién pasa por penales (P)</li>
-          <li><strong>2 pts</strong> — resultado exacto</li>
-          <li><strong>1 pt</strong> — acertás quién pasa de ronda</li>
-          <li><strong>0 pts</strong> — no acertás</li>
+          <li><strong>2 pts</strong> — resultado exacto en 90 min</li>
+          <li><strong>1 pt</strong> — acertás quién pasa, sin resultado exacto</li>
         </ul>
+
+        <p class="rules-subhead">Si el partido va a penales</p>
+        <ul>
+          <li><strong>5 pts</strong> — empate exacto en 90 min y acertás ganador por penales (P)</li>
+          <li><strong>3 pts</strong> — acertás ganador por penales, sin empate exacto en 90 min</li>
+          <li><strong>2 pts</strong> — empate exacto en 90 min, pero mal el ganador por penales</li>
+        </ul>
+
+        <p class="rules-note rules-note--tight">
+          Para sumar 3 o 5 pts tenés que marcar penales y elegir quién gana (P) en tu predicción.
+        </p>
       </section>
+
       <section class="rules-section">
         <h3>Finalistas y campeón</h3>
         <p class="rules-note">Solo suma una de estas opciones:</p>
@@ -83,6 +97,13 @@
   letter-spacing: 0.04em;
 }
 
+.rules-subhead {
+  margin: 0.75rem 0 0.35rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
 .rules-section ul {
   margin: 0;
   padding-left: 1.125rem;
@@ -95,6 +116,11 @@
   margin: 0 0 0.375rem;
   font-size: 0.8125rem;
   color: var(--text-muted);
+}
+
+.rules-note--tight {
+  margin-top: 0.5rem;
+  margin-bottom: 0;
 }
 
 .rules-section li + li {
