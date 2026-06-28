@@ -106,6 +106,8 @@ export const TEAM_CREST_ALIASES = {
   croatia: 'Croatia',
   uruguay: 'Uruguay',
   colombia: 'Colombia',
+  'rd congo': 'Congo DR',
+  'congo dr': 'Congo DR',
   chile: 'Chile',
   ecuador: 'Ecuador',
   peru: 'Peru',

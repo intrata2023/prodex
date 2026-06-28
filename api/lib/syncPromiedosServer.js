@@ -42,14 +42,47 @@ export async function syncEquiposFromPromiedos(supabase, adminPin) {
   )
 
   let updated = 0
+  let inserted = 0
   let localFilled = 0
   let visitanteFilled = 0
   let sinPartido = 0
   let sinCambios = 0
 
+  let nextOrden =
+    Math.max(
+      baseGruposOrden,
+      ...(existentes || []).map((p) => p.orden ?? 0),
+      0
+    ) + 1
+
   for (const row of promiedosRows) {
     const externalId = normalizeExternalId(row.external_id)
-    const existente = externalId != null ? byExternalId.get(externalId) : null
+    let existente = externalId != null ? byExternalId.get(externalId) : null
+
+    if (!existente && externalId != null) {
+      const payload = {
+        fase: row.fase,
+        ronda: row.ronda,
+        grupo: null,
+        equipo_local: row.equipo_local,
+        equipo_visitante: row.equipo_visitante,
+        external_id: externalId,
+        fecha: row.fecha,
+        orden: row.orden ?? nextOrden++,
+      }
+      const { data: newId, error: insErr } = await supabase.rpc('admin_insert_partido', {
+        p_admin_pin: adminPin,
+        p_payload: payload,
+      })
+      if (insErr) throw insErr
+      inserted++
+      existente = { id: newId, external_id: externalId, ...payload }
+      byExternalId.set(externalId, existente)
+      if (!isSlotPlaceholder(row.equipo_local)) localFilled++
+      if (!isSlotPlaceholder(row.equipo_visitante)) visitanteFilled++
+      continue
+    }
+
     if (!existente) {
       sinPartido++
       continue
@@ -100,6 +133,7 @@ export async function syncEquiposFromPromiedos(supabase, adminPin) {
     fuente: 'promiedos',
     total: promiedosRows.length,
     updated,
+    inserted,
     localFilled,
     visitanteFilled,
     sinPartido,

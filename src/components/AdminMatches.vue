@@ -107,8 +107,10 @@ function textoCuadrosSync(stats, { automatico = false } = {}) {
   }
   const p = stats.promiedos
   if (p && !p.error) {
-    if (p.updated > 0) {
-      texto += ` Promiedos completó ${p.updated} cruces (${p.localFilled + p.visitanteFilled} equipos nuevos).`
+    if (p.updated > 0 || p.inserted > 0) {
+      texto += ` Promiedos: ${p.updated} actualizados`
+      if (p.inserted) texto += `, ${p.inserted} nuevos`
+      texto += ` (${p.localFilled + p.visitanteFilled} equipos).`
     } else {
       texto += ' Promiedos: sin cambios (cuadro ya al día).'
     }
