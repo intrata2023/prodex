@@ -4,7 +4,6 @@ import { RouterLink } from 'vue-router'
 import MisPrediccionRow from './MisPrediccionRow.vue'
 import { useSession } from '../composables/useSession.js'
 import { useConfig } from '../composables/useConfig.js'
-import { usePrediccionContrincanteVisibilidad } from '../composables/usePrediccionContrincanteVisibilidad.js'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
 import {
   linkVerTodosContrincantes,
@@ -13,8 +12,6 @@ import {
 import { mapPrediccionesACanonica, statusCampeon } from '../lib/participantProgress.js'
 import {
   fetchAllPartidos,
-  fetchAllParticipantesPublic,
-  fetchAllPredicciones,
   fetchAllResultados,
   fetchPrediccionesParticipante,
   mapResultadosPorPartido,
@@ -33,23 +30,14 @@ import {
 
 const { participanteId } = useSession()
 const { config, loadConfig } = useConfig()
-const {
-  iniciar: iniciarVisibilidad,
-  detener: detenerVisibilidad,
-  mensajePrediccionOculta,
-  filtrarPrediccionesVisibles,
-} = usePrediccionContrincanteVisibilidad()
 
 const partidos = ref([])
 const predicciones = ref({})
 const resultados = ref({})
-const rivales = ref([])
-const prediccionesPorRival = ref({})
 const campeonPred = ref(null)
 const loading = ref(true)
 const error = ref('')
 const offsetDias = ref(0)
-const expandido = ref(null)
 const ahora = ref(Date.now())
 let relojTimer = null
 
@@ -113,50 +101,6 @@ function linkContrincantes(partido) {
   return linkVerTodosContrincantes(partido)
 }
 
-function initial(nombre) {
-  return (nombre || '?').charAt(0).toUpperCase()
-}
-
-function prediccionesRival(id) {
-  return prediccionesPorRival.value[id] || {}
-}
-
-function partidosDelRival(id) {
-  return partidosDelDia(
-    partidosConPrediccion(partidosLista.value, prediccionesRival(id)),
-    claveDia.value
-  )
-}
-
-function resumenRivalDia(id) {
-  const lista = partidosDelRival(id)
-  const preds = filtrarPrediccionesVisibles(lista, prediccionesRival(id))
-  const resumen = resumenPuntosDia(lista, preds, resultados.value)
-  const ocultas = lista.filter(
-    (p) => p.fase !== 'grupos' && prediccionesRival(id)[p.id] && mensajePrediccionOculta(p)
-  ).length
-  return { ...resumen, ocultas }
-}
-
-function resumenDiaTexto(resumen) {
-  if (!resumen.total) return 'Sin predicciones este día'
-  const ocultasTxt =
-    resumen.ocultas > 0
-      ? ` · ${resumen.ocultas} oculta${resumen.ocultas === 1 ? '' : 's'}`
-      : ''
-  if (!resumen.conResultado) {
-    return `${resumen.total} ${resumen.total === 1 ? 'partido' : 'partidos'}${ocultasTxt}`
-  }
-  const partes = [`${resumen.pts} pts`]
-  if (resumen.exacto) partes.push(`${resumen.exacto} exacto${resumen.exacto === 1 ? '' : 's'}`)
-  if (resumen.parcial) partes.push(`${resumen.parcial} parcial${resumen.parcial === 1 ? '' : 'es'}`)
-  return partes.join(' · ') + ocultasTxt
-}
-
-function toggleRival(id) {
-  expandido.value = expandido.value === id ? null : id
-}
-
 function diaAnterior() {
   offsetDias.value -= 1
 }
@@ -170,7 +114,7 @@ function irAHoy() {
 }
 
 onMounted(async () => {
-  await Promise.all([loadConfig(), iniciarVisibilidad()])
+  await loadConfig()
   cargar()
   relojTimer = setInterval(() => {
     ahora.value = Date.now()
@@ -178,7 +122,6 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  detenerVisibilidad()
   clearInterval(relojTimer)
 })
 
@@ -191,12 +134,10 @@ async function cargar() {
   }
 
   try {
-    const [pts, preds, res, participantes, todasPreds, campRes] = await Promise.all([
+    const [pts, preds, res, campRes] = await Promise.all([
       fetchAllPartidos(supabase),
       fetchPrediccionesParticipante(supabase, participanteId.value),
       fetchAllResultados(supabase),
-      fetchAllParticipantesPublic(supabase),
-      fetchAllPredicciones(supabase),
       supabase
         .from('prediccion_campeon')
         .select('*')
@@ -214,22 +155,6 @@ async function cargar() {
       ...mapPrediccionesACanonica(grupos, predMap),
     }
     resultados.value = mapResultadosPorPartido(res)
-
-    const porParticipante = {}
-    for (const p of todasPreds) {
-      if (!porParticipante[p.participante_id]) porParticipante[p.participante_id] = []
-      porParticipante[p.participante_id].push(p)
-    }
-    const mapa = {}
-    for (const [id, lista] of Object.entries(porParticipante)) {
-      const rivalMap = Object.fromEntries(lista.map((p) => [p.partido_id, p]))
-      mapa[id] = { ...rivalMap, ...mapPrediccionesACanonica(grupos, rivalMap) }
-    }
-    prediccionesPorRival.value = mapa
-
-    rivales.value = participantes
-      .map((p, i) => ({ ...p, puesto: i + 1 }))
-      .filter((p) => p.id !== participanteId.value)
   } catch (e) {
     console.error(e)
     error.value = 'No se pudieron cargar los partidos. Probá de nuevo.'
@@ -381,67 +306,6 @@ async function cargar() {
           />
         </div>
       </template>
-
-      <section v-if="rivales.length" class="home-contrincantes">
-        <div class="home-hoy-head home-contrincantes-head">
-          <h2 class="home-hoy-title">Contrincantes</h2>
-          <RouterLink to="/rivales" class="home-hoy-link">Ver página</RouterLink>
-        </div>
-
-        <p class="home-contrincantes-hint">
-          Grupos: predicciones visibles siempre. Eliminatorias: se revelan
-          <strong>1 h antes del partido</strong>, cuando cierra la carga de ese cruce.
-        </p>
-
-        <div class="rivales-lista">
-          <div
-            v-for="rival in rivales"
-            :key="rival.id"
-            class="rivales-item"
-            :class="{ 'rivales-item--open': expandido === rival.id }"
-          >
-            <button
-              type="button"
-              class="rivales-trigger"
-              :aria-expanded="expandido === rival.id"
-              @click="toggleRival(rival.id)"
-            >
-              <span class="rivales-pos" :class="{ 'rivales-pos--podium': rival.puesto <= 3 }">
-                {{ rival.puesto }}
-              </span>
-              <span class="rivales-avatar">{{ initial(rival.nombre) }}</span>
-              <span class="rivales-info">
-                <span class="rivales-nombre">{{ rival.nombre }}</span>
-                <span class="rivales-dia-resumen">
-                  {{ resumenDiaTexto(resumenRivalDia(rival.id)) }}
-                </span>
-              </span>
-              <span class="rivales-pts">{{ rival.puntos_total }} pts</span>
-              <span class="rivales-chevron" aria-hidden="true">
-                {{ expandido === rival.id ? '▾' : '▸' }}
-              </span>
-            </button>
-
-            <div v-if="expandido === rival.id" class="rivales-detalle">
-              <p v-if="partidosDelRival(rival.id).length === 0" class="home-hoy-empty">
-                No cargó predicciones para este día.
-              </p>
-
-              <div v-else class="home-hoy-lista">
-                <MisPrediccionRow
-                  v-for="p in partidosDelRival(rival.id)"
-                  :key="p.id"
-                  :partido="p"
-                  :prediccion="prediccionesRival(rival.id)[p.id]"
-                  :resultado="resultados[p.id]"
-                  :mensaje-prediccion-oculta="mensajePrediccionOculta(p)"
-                  :show-contrincantes-link="linkContrincantes(p)"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
     </template>
   </section>
 </template>
