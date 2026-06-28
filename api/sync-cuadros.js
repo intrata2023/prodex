@@ -5,6 +5,7 @@ import {
   syncEliminatoriasCuadros,
   verifyAdminPin,
 } from './lib/syncCuadrosServer.js'
+import { syncEquiposFromPromiedos } from './lib/syncPromiedosServer.js'
 
 function parseBody(req) {
   if (req.body && typeof req.body === 'object') return req.body
@@ -76,7 +77,15 @@ export default async function handler(req, res) {
 
     const matches = await fetchFootballDataMatches(footballToken)
     const stats = await syncEliminatoriasCuadros(supabase, pinForSync, matches)
-    res.status(200).json({ ok: true, ...stats })
+
+    let promiedos = null
+    try {
+      promiedos = await syncEquiposFromPromiedos(supabase, pinForSync)
+    } catch (promErr) {
+      promiedos = { error: promErr.message || 'Error al leer Promiedos' }
+    }
+
+    res.status(200).json({ ok: true, ...stats, promiedos })
   } catch (e) {
     const msg = e.message || 'Error al sincronizar cuadros'
     if (msg.includes('admin_update_partido')) {

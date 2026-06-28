@@ -105,6 +105,16 @@ function textoCuadrosSync(stats, { automatico = false } = {}) {
   if (stats.conservados > 0) {
     texto += ` Se conservaron ${stats.conservados} equipos ya cargados (respuesta parcial de la API).`
   }
+  const p = stats.promiedos
+  if (p && !p.error) {
+    if (p.updated > 0) {
+      texto += ` Promiedos completó ${p.updated} cruces (${p.localFilled + p.visitanteFilled} equipos nuevos).`
+    } else {
+      texto += ' Promiedos: sin cambios (cuadro ya al día).'
+    }
+  } else if (p?.error) {
+    texto += ` Promiedos no disponible: ${p.error}`
+  }
   return texto
 }
 
@@ -183,8 +193,9 @@ defineExpose({ cargar })
       {{ importandoCuadros ? 'Trayendo cuadros…' : 'Traer cuadros (eliminatorias)' }}
     </button>
     <p class="text-muted small mb-3">
-      Se sincroniza al entrar al admin y una vez por día en el servidor. También podés forzar
-      con el botón. Solo actualiza 16avos en adelante; la fase de grupos no se toca.
+      Se sincroniza al entrar al admin y una vez por día en el servidor. También completamos
+      slots vacíos desde Promiedos. Podés forzar con el botón. Solo actualiza 16avos en adelante;
+      la fase de grupos no se toca.
     </p>
 
     <div ref="crucesRef">
