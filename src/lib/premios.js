@@ -2,6 +2,34 @@
  * Distribución de premios del pozo
  */
 
+/** Top 3 del ranking agrupando empates en el mismo puesto. */
+export function getPodio(ranking) {
+  const sorted = [...ranking].sort((a, b) => b.puntos_total - a.puntos_total)
+  const grupos = []
+  let i = 0
+  while (i < sorted.length && grupos.length < 3) {
+    const puntos = sorted[i].puntos_total
+    const grupo = sorted.filter((p) => p.puntos_total === puntos)
+    grupos.push(grupo)
+    i += grupo.length
+  }
+  return {
+    campeon: grupos[0] || [],
+    segundo: grupos[1] || [],
+    tercero: grupos[2] || [],
+  }
+}
+
+export function nombresPodio(participantes) {
+  if (!participantes?.length) return ''
+  if (participantes.length === 1) return participantes[0].nombre
+  if (participantes.length === 2) {
+    return `${participantes[0].nombre} y ${participantes[1].nombre}`
+  }
+  const todos = participantes.map((p) => p.nombre)
+  return `${todos.slice(0, -1).join(', ')} y ${todos.at(-1)}`
+}
+
 export function calcularPremios(ranking, montoPorPersona = 15000) {
   const n = ranking.length
   if (n === 0) return []

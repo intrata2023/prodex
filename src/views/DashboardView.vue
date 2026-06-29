@@ -1,13 +1,24 @@
 <script setup>
 import { onMounted, computed } from 'vue'
+import { useRoute } from 'vue-router'
 import AppLayout from '../components/AppLayout.vue'
 import HomeResumenHoy from '../components/HomeResumenHoy.vue'
+import HomePodioCampeon from '../components/HomePodioCampeon.vue'
 import ScoringRules from '../components/ScoringRules.vue'
 import { useSession } from '../composables/useSession.js'
 import { useConfig } from '../composables/useConfig.js'
 
 const { nombre } = useSession()
 const { config, loadConfig } = useConfig()
+const route = useRoute()
+
+/** Solo en dev: ?previewPodio=1 simula campeón del mundial para ver el podio. */
+const campeonParaPodio = computed(() => {
+  if (import.meta.env.DEV && route.query.previewPodio === '1') {
+    return config.value.campeon_real || 'Argentina'
+  }
+  return config.value.campeon_real || ''
+})
 
 const gruposBloqueado = computed(() => !config.value.grupos_abiertos)
 const elimBloqueado = computed(() => !config.value.eliminatorias_abiertos)
@@ -32,6 +43,8 @@ onMounted(loadConfig)
         Hola, <strong>{{ nombre }}</strong>
       </p>
     </header>
+
+    <HomePodioCampeon :campeon-real="campeonParaPodio" />
 
     <HomeResumenHoy />
 

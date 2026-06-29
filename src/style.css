@@ -238,6 +238,123 @@ body {
   font-weight: 600;
 }
 
+.home-podio {
+  margin-bottom: 1.25rem;
+  padding: 1.5rem 1rem 1.25rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(234, 179, 8, 0.35);
+  background: linear-gradient(
+    165deg,
+    rgba(234, 179, 8, 0.14) 0%,
+    rgba(34, 197, 94, 0.06) 45%,
+    rgba(255, 255, 255, 0.02) 100%
+  );
+  text-align: center;
+  overflow: hidden;
+}
+
+.home-podio-loading {
+  display: flex;
+  justify-content: center;
+  padding: 1.5rem 0;
+}
+
+.home-podio-mundial {
+  margin: 0 0 1rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.home-podio-mundial strong {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.home-podio-campeon {
+  padding: 0.25rem 0 0.5rem;
+}
+
+.home-podio-trophy {
+  display: block;
+  font-size: 3rem;
+  line-height: 1;
+  margin-bottom: 0.375rem;
+  filter: drop-shadow(0 4px 12px rgba(234, 179, 8, 0.35));
+}
+
+.home-podio-kicker {
+  margin: 0 0 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(234, 179, 8, 0.95);
+}
+
+.home-podio-nombre {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--text);
+}
+
+.home-podio-nombre--campeon {
+  font-size: clamp(1.75rem, 7vw, 2.5rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.home-podio-pts {
+  margin: 0.375rem 0 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.home-podio-pts--sm {
+  font-size: 0.875rem;
+  margin-top: 0.125rem;
+}
+
+.home-podio-rest {
+  margin-top: 1.125rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.home-podio-subgrid {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  column-gap: 0.75rem;
+  row-gap: 0.75rem;
+  align-items: center;
+  width: max-content;
+  max-width: 100%;
+  margin-inline: auto;
+  text-align: left;
+}
+
+.home-podio-puesto-info {
+  min-width: 0;
+}
+
+.home-podio-medalla {
+  justify-self: center;
+  font-size: 1.75rem;
+  line-height: 1;
+}
+
+.home-podio-puesto-label {
+  margin: 0 0 0.125rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
 .home-section-label {
   margin: 0 0 0.625rem;
   padding-left: 0.125rem;
