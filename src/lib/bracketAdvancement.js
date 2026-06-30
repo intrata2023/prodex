@@ -1,5 +1,6 @@
 import { FIFA_SLOT_LABELS, fifaMatchNo } from './fifaBracket2026.js'
 import { cruceEliminatoriaCompleto } from './eliminatorias.js'
+import { resolverEquipoEnPartido, equiposEquivalentes } from './teamCrestAliases.js'
 import { ganadorRealPartido } from './scoring.js'
 
 const FASE_ORDEN = { grupos: 0, r32: 1, r16: 2, qf: 3, sf: 4, final: 5 }
@@ -50,8 +51,9 @@ export function calcularAvanceCuadro(partido, resultado, partidos) {
   if (!partido || partido.fase === 'grupos') return null
   if (!resultadoCompleto(partido, resultado)) return null
 
-  const winner = ganadorRealPartido(partido, resultado)
-  if (!winner) return null
+  const winnerRaw = ganadorRealPartido(partido, resultado)
+  if (!winnerRaw) return null
+  const winner = resolverEquipoEnPartido(winnerRaw, partido)
 
   const sourceNo = fifaMatchNo(partido)
   if (!sourceNo) return null
@@ -63,12 +65,12 @@ export function calcularAvanceCuadro(partido, resultado, partidos) {
   if (!destPartido) return null
 
   const field = dest.side === 'local' ? 'equipo_local' : 'equipo_visitante'
-  if (destPartido[field] === winner) return null
+  if (equiposEquivalentes(destPartido[field], winner)) return null
 
   return {
     partidoId: destPartido.id,
     field,
-    equipo: winner,
+    equipo: resolverEquipoEnPartido(winner, destPartido) || winner,
     destPartido,
     sourceFifaNo: sourceNo,
     destFifaNo: dest.destNo,

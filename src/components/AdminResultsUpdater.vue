@@ -8,6 +8,8 @@ import {
   mapResultadosPorPartido,
 } from '../lib/dataLoaders.js'
 import { calcularTodosLosPuntos, ganadorRealPartido } from '../lib/scoring.js'
+import { listarCorreccionesNombresEquipos } from '../lib/normalizarEquipos.js'
+import { resolverEquipoEnPartido, resolverEquipoEnLista } from '../lib/teamCrestAliases.js'
 import {
   listarAvancesCuadro,
   calcularAvanceCuadro,
@@ -185,11 +187,12 @@ async function guardarResultado(partidoId, field, value) {
 }
 
 async function setGanadorPenales(partidoId, equipo) {
+  const partido = partidos.value.find((p) => p.id === partidoId)
   const actual = resultados.value[partidoId] || { partido_id: partidoId }
   const updated = {
     ...actual,
     definido_penales: true,
-    ganador_penales: equipo,
+    ganador_penales: partido ? resolverEquipoEnPartido(equipo, partido) : equipo,
   }
   resultados.value[partidoId] = updated
   await persistirResultado(updated)
@@ -197,18 +200,22 @@ async function setGanadorPenales(partidoId, equipo) {
 
 async function persistirResultado(updated) {
   const pin = requireAdminPin()
+  const partido = partidos.value.find((p) => p.id === updated.partido_id)
+  const payload = { ...updated }
+  if (payload.ganador_penales && partido) {
+    payload.ganador_penales = resolverEquipoEnPartido(payload.ganador_penales, partido)
+  }
   await supabase.rpc('admin_upsert_resultado', {
     p_admin_pin: pin,
-    p_partido_id: updated.partido_id,
-    p_goles_local: updated.goles_local,
-    p_goles_visitante: updated.goles_visitante,
-    p_definido_penales: updated.definido_penales ?? false,
-    p_ganador_penales: updated.ganador_penales || null,
+    p_partido_id: payload.partido_id,
+    p_goles_local: payload.goles_local,
+    p_goles_visitante: payload.goles_visitante,
+    p_definido_penales: payload.definido_penales ?? false,
+    p_ganador_penales: payload.ganador_penales || null,
   })
 
-  const partido = partidos.value.find((p) => p.id === updated.partido_id)
-  if (partido && resultadoCompleto(partido, updated)) {
-    const avance = calcularAvanceCuadro(partido, updated, partidos.value)
+  if (partido && resultadoCompleto(partido, payload)) {
+    const avance = calcularAvanceCuadro(partido, payload, partidos.value)
     if (avance) {
       await supabase.rpc('admin_update_partido', {
         p_admin_pin: pin,
@@ -221,7 +228,8 @@ async function persistirResultado(updated) {
     }
 
     if (partido.fase === 'final') {
-      const campeon = ganadorRealPartido(partido, updated)
+      const campeonRaw = ganadorRealPartido(partido, payload)
+      const campeon = campeonRaw ? resolverEquipoEnPartido(campeonRaw, partido) : null
       if (campeon) {
         await supabase.rpc('admin_update_config', {
           p_admin_pin: pin,
@@ -234,6 +242,7 @@ async function persistirResultado(updated) {
       }
     }
   }
+  resultados.value[payload.partido_id] = payload
 }
 
 function esEmpate(partidoId) {
@@ -266,7 +275,45 @@ async function recalcular() {
       ? [partidoFinal.equipo_local, partidoFinal.equipo_visitante]
       : []
 
-    const resultadosConGanador = res.map((r) => {
+    const { predFixes, resFixes } = listarCorreccionesNombresEquipos(pts, preds, res)
+    for (const fix of predFixes) {
+      await supabase.rpc('upsert_prediccion', {
+        p_participante_id: fix.participante_id,
+        p_partido_id: fix.partido_id,
+        p_goles_local: fix.goles_local,
+        p_goles_visitante: fix.goles_visitante,
+        p_penales: fix.penales ?? false,
+        p_ganador_penales: fix.ganador_penales,
+      })
+    }
+    for (const fix of resFixes) {
+      await supabase.rpc('admin_upsert_resultado', {
+        p_admin_pin: pin,
+        p_partido_id: fix.partido_id,
+        p_goles_local: fix.goles_local,
+        p_goles_visitante: fix.goles_visitante,
+        p_definido_penales: fix.definido_penales ?? false,
+        p_ganador_penales: fix.ganador_penales,
+      })
+      resultados.value[fix.partido_id] = fix
+    }
+
+    const predsNorm = preds.map((p) => {
+      const fix = predFixes.find(
+        (f) => f.participante_id === p.participante_id && f.partido_id === p.partido_id
+      )
+      return fix || p
+    })
+    const resNorm = res.map((r) => {
+      const fix = resFixes.find((f) => f.partido_id === r.partido_id)
+      return fix || r
+    })
+
+    const campeonRealNorm = cfg?.campeon_real
+      ? resolverEquipoEnLista(cfg.campeon_real, finalistasReales) || cfg.campeon_real
+      : null
+
+    const resultadosConGanador = resNorm.map((r) => {
       const partido = pts.find((p) => p.id === r.partido_id)
       return { ...r, ...partido }
     })
@@ -274,10 +321,10 @@ async function recalcular() {
     const updates = calcularTodosLosPuntos(
       participantes,
       pts,
-      preds,
+      predsNorm,
       resultadosConGanador,
       campeones,
-      cfg?.campeon_real,
+      campeonRealNorm,
       finalistasReales
     )
 
@@ -290,7 +337,11 @@ async function recalcular() {
       })
     }
 
-    mensaje.value = `Puntos recalculados para ${updates.length} participantes`
+    mensaje.value = `Puntos recalculados para ${updates.length} participantes${
+      predFixes.length + resFixes.length
+        ? ` (${predFixes.length + resFixes.length} nombres de equipos corregidos)`
+        : ''
+    }`
   } catch (e) {
     error.value = e.message || 'Error al recalcular puntos.'
   } finally {

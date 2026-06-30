@@ -2,6 +2,7 @@
 import { ref, watch, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useTeamCrests } from '../composables/useTeamCrests.js'
 import { aciertoPrediccion } from '../lib/scoring.js'
+import { resolverEquipoEnPartido } from '../lib/teamCrestAliases.js'
 import PenalesGanadorPicker from './PenalesGanadorPicker.vue'
 
 const props = defineProps({
@@ -72,7 +73,9 @@ async function syncFromPred() {
   if (props.prediccion) {
     golesLocal.value = formatGoles(props.prediccion.goles_local)
     golesVisitante.value = formatGoles(props.prediccion.goles_visitante)
-    ganadorPenales.value = props.prediccion.ganador_penales || ''
+    ganadorPenales.value = props.prediccion.ganador_penales
+      ? resolverEquipoEnPartido(props.prediccion.ganador_penales, props.partido)
+      : ''
   } else {
     golesLocal.value = ''
     golesVisitante.value = ''
@@ -100,7 +103,10 @@ function buildPayload() {
     goles_local: gl,
     goles_visitante: gv,
     penales: empate && Boolean(ganadorPenales.value),
-    ganador_penales: empate ? ganadorPenales.value || null : null,
+    ganador_penales:
+      empate && ganadorPenales.value
+        ? resolverEquipoEnPartido(ganadorPenales.value, props.partido)
+        : null,
   }
 }
 

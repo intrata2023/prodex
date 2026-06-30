@@ -1,5 +1,6 @@
 <script setup>
 import { computed, watch } from 'vue'
+import { equiposEquivalentes } from '../lib/teamCrestAliases.js'
 
 const props = defineProps({
   modelValue: { type: Object, required: true },
@@ -34,7 +35,9 @@ watch(
   () => {
     const { equipo, finalista_1, finalista_2 } = campeon.value
     if (!equipo) return
-    if (equipo !== finalista_1 && equipo !== finalista_2) {
+    const sigueEnFinal =
+      equiposEquivalentes(equipo, finalista_1) || equiposEquivalentes(equipo, finalista_2)
+    if (!sigueEnFinal) {
       campeon.value = { ...campeon.value, equipo: '' }
       emit('save')
     }

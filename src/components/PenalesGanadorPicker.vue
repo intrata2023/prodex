@@ -1,4 +1,6 @@
 <script setup>
+import { equiposEquivalentes } from '../lib/teamCrestAliases.js'
+
 defineProps({
   partido: { type: Object, required: true },
   modelValue: { type: String, default: '' },
@@ -20,7 +22,7 @@ function elegir(equipo) {
       <button
         type="button"
         class="penales-picker-btn"
-        :class="{ 'penales-picker-btn--active': modelValue === partido.equipo_local }"
+        :class="{ 'penales-picker-btn--active': equiposEquivalentes(modelValue, partido.equipo_local) }"
         :disabled="disabled"
         @click="elegir(partido.equipo_local)"
       >
@@ -31,13 +33,13 @@ function elegir(equipo) {
           :alt="partido.equipo_local"
         />
         <span class="penales-picker-team">{{ partido.equipo_local }}</span>
-        <span v-if="modelValue === partido.equipo_local" class="penales-picker-p">P</span>
+        <span v-if="equiposEquivalentes(modelValue, partido.equipo_local)" class="penales-picker-p">P</span>
       </button>
 
       <button
         type="button"
         class="penales-picker-btn"
-        :class="{ 'penales-picker-btn--active': modelValue === partido.equipo_visitante }"
+        :class="{ 'penales-picker-btn--active': equiposEquivalentes(modelValue, partido.equipo_visitante) }"
         :disabled="disabled"
         @click="elegir(partido.equipo_visitante)"
       >
@@ -48,7 +50,7 @@ function elegir(equipo) {
           :alt="partido.equipo_visitante"
         />
         <span class="penales-picker-team">{{ partido.equipo_visitante }}</span>
-        <span v-if="modelValue === partido.equipo_visitante" class="penales-picker-p">P</span>
+        <span v-if="equiposEquivalentes(modelValue, partido.equipo_visitante)" class="penales-picker-p">P</span>
       </button>
     </div>
   </div>

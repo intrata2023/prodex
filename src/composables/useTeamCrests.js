@@ -4,6 +4,7 @@ import { isPlaceholderEquipo } from '../lib/eliminatorias.js'
 import {
   normTeamCrestKey,
   apiTeamNameForCrest,
+  equiposEquivalentes,
   TEAM_CREST_ALIASES,
   TEAM_STATIC_CRESTS,
   staticCrestForTeam,
@@ -95,8 +96,10 @@ export function useTeamCrests() {
 
   function crestForTeam(nombre, partido = null) {
     if (partido) {
-      if (partido.equipo_local === nombre && partido.escudo_local) return partido.escudo_local
-      if (partido.equipo_visitante === nombre && partido.escudo_visitante) {
+      if (equiposEquivalentes(nombre, partido.equipo_local) && partido.escudo_local) {
+        return partido.escudo_local
+      }
+      if (equiposEquivalentes(nombre, partido.equipo_visitante) && partido.escudo_visitante) {
         return partido.escudo_visitante
       }
     }

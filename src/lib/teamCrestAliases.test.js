@@ -2,6 +2,8 @@ import {
   normTeamCrestKey,
   apiTeamNameForCrest,
   equiposEquivalentes,
+  resolverEquipoEnPartido,
+  partidosMismosEquipos,
   TEAM_CREST_ALIASES,
   staticCrestForTeam,
 } from './teamCrestAliases.js'
@@ -9,6 +11,19 @@ import {
 console.assert(normTeamCrestKey('Países Bajos') === 'paises bajos', 'norm sin acentos')
 console.assert(equiposEquivalentes('Marruecos', 'Morocco'), 'alias marruecos/morocco')
 console.assert(equiposEquivalentes('Países Bajos', 'Netherlands'), 'alias paises bajos')
+console.assert(
+  resolverEquipoEnPartido('Morocco', { equipo_local: 'Portugal', equipo_visitante: 'Marruecos' }) ===
+    'Marruecos',
+  'resolver en partido'
+)
+console.assert(
+  partidosMismosEquipos(
+    { equipo_local: 'Marruecos', equipo_visitante: 'Portugal' },
+    'Morocco',
+    'Portugal'
+  ),
+  'partidos mismos equipos'
+)
 console.assert(apiTeamNameForCrest('Sudáfrica') === 'South Africa', 'alias sudafrica')
 console.assert(apiTeamNameForCrest('Costa de Marfil') === 'Ivory Coast', 'alias cmarfil')
 console.assert(apiTeamNameForCrest('Cabo Verde') === 'Cape Verde Islands', 'alias cabo verde')

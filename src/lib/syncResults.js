@@ -1,5 +1,6 @@
 import { isPlaceholderEquipo } from './eliminatorias.js'
 import { enrichPartidoBracketMeta } from './fifaBracket2026.js'
+import { equiposEquivalentes, partidosMismosEquipos, resolverEquipoEnPartido } from './teamCrestAliases.js'
 
 const FASE_BY_STAGE = {
   GROUP_STAGE: 'grupos',
@@ -99,6 +100,10 @@ function stripEscudos(partido) {
 
 /** No pisar un equipo real ya guardado si la API devuelve placeholder (respuesta en caché). */
 export function mergeEquipoNombre(apiName, existingName) {
+  if (!isPlaceholderEquipo(apiName) && !isPlaceholderEquipo(existingName)) {
+    if (equiposEquivalentes(apiName, existingName)) return existingName
+    return apiName
+  }
   if (!isPlaceholderEquipo(apiName)) return apiName
   if (!isPlaceholderEquipo(existingName)) return existingName
   return apiName
@@ -369,7 +374,7 @@ export async function fetchWorldCupMatches() {
   )
 }
 
-export function mapApiMatchToResult(match) {
+export function mapApiMatchToResult(match, partido = null) {
   if (match.status !== 'FINISHED') return null
 
   const score120 =
@@ -384,10 +389,11 @@ export function mapApiMatchToResult(match) {
 
   let ganador_penales = null
   if (penales) {
-    ganador_penales =
+    const apiWinner =
       match.score.penalties.home > match.score.penalties.away
         ? match.homeTeam?.name
         : match.awayTeam?.name
+    ganador_penales = partido ? resolverEquipoEnPartido(apiWinner, partido) : apiWinner
   }
 
   return {
@@ -405,9 +411,5 @@ export function matchPartidoLocal(partido, apiResult) {
   if (partido.external_id && apiResult.external_id) {
     return partido.external_id === apiResult.external_id
   }
-  const norm = (s) => (s || '').toLowerCase().trim()
-  return (
-    norm(partido.equipo_local) === norm(apiResult.equipo_local) &&
-    norm(partido.equipo_visitante) === norm(apiResult.equipo_visitante)
-  )
+  return partidosMismosEquipos(partido, apiResult.equipo_local, apiResult.equipo_visitante)
 }

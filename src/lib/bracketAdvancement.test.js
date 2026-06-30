@@ -66,4 +66,23 @@ console.assert(
 const avances = listarAvancesCuadro(partidos, { m73: resPenales })
 console.assert(avances.length === 1 && avances[0].equipo === 'Argentina', 'lista avances')
 
+const mMorocco = {
+  id: 'mMor',
+  fase: 'r16',
+  external_id: 999,
+  ronda: 'Octavos',
+  equipo_local: 'Portugal',
+  equipo_visitante: 'Marruecos',
+}
+const resMorocco = {
+  goles_local: 1,
+  goles_visitante: 1,
+  definido_penales: true,
+  ganador_penales: 'Morocco',
+}
+console.assert(
+  ganadorRealPartido(mMorocco, resMorocco) === 'Marruecos',
+  'ganador penales normalizado al nombre del fixture'
+)
+
 console.log('bracketAdvancement.test.js OK')

@@ -2,7 +2,7 @@
  * Cálculo de puntos - Prode Mundial 2026
  */
 
-import { equiposEquivalentes } from './teamCrestAliases.js'
+import { equiposEquivalentes, resolverEquipoEnPartido } from './teamCrestAliases.js'
 
 export function ganador(golesLocal, golesVisitante) {
   if (golesLocal == null || golesVisitante == null) return null
@@ -38,10 +38,14 @@ function equipoQuePasa(data, partido, esPrediccion) {
   if (gv > gl) return partido.equipo_visitante
   if (gl === gv) {
     if (esPrediccion) {
-      if (data.penales && data.ganador_penales) return data.ganador_penales
+      if (data.penales && data.ganador_penales) {
+        return resolverEquipoEnPartido(data.ganador_penales, partido)
+      }
       return null
     }
-    if (data.definido_penales && data.ganador_penales) return data.ganador_penales
+    if (data.definido_penales && data.ganador_penales) {
+      return resolverEquipoEnPartido(data.ganador_penales, partido)
+    }
     return null
   }
   return null

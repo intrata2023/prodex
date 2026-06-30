@@ -9,6 +9,7 @@ import FinalistasCampeonPicker from '../components/FinalistasCampeonPicker.vue'
 import { useSession } from '../composables/useSession.js'
 import { useConfig } from '../composables/useConfig.js'
 import { supabase, supabaseConfigured } from '../lib/supabase.js'
+import { resolverEquipoEnPartido } from '../lib/teamCrestAliases.js'
 import { fetchAllPartidos, fetchAllResultados, fetchPrediccionesParticipante, mapResultadosPorPartido } from '../lib/dataLoaders.js'
 import {
   campeonEdicionCerrada,
@@ -154,15 +155,22 @@ async function guardar(payload) {
   if (!partido || !cruceEliminatoriaCompleto(partido) || partidoBloqueado(partido) || !supabaseConfigured) {
     return
   }
+  const ganadorPenales = payload.ganador_penales
+    ? resolverEquipoEnPartido(payload.ganador_penales, partido)
+    : null
   await supabase.rpc('upsert_prediccion', {
     p_participante_id: participanteId.value,
     p_partido_id: payload.partido_id,
     p_goles_local: payload.goles_local,
     p_goles_visitante: payload.goles_visitante,
     p_penales: payload.penales ?? false,
-    p_ganador_penales: payload.ganador_penales ?? null,
+    p_ganador_penales: ganadorPenales,
   })
-  predicciones.value[payload.partido_id] = { ...predicciones.value[payload.partido_id], ...payload }
+  predicciones.value[payload.partido_id] = {
+    ...predicciones.value[payload.partido_id],
+    ...payload,
+    ganador_penales: ganadorPenales,
+  }
 }
 
 function guardarCampeon() {

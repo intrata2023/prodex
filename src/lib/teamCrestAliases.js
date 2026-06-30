@@ -181,6 +181,33 @@ export function equiposEquivalentes(a, b) {
   return canonicalTeamKey(a) === canonicalTeamKey(b)
 }
 
+/** Si el nombre coincide con local o visitante del partido, devuelve el del fixture. */
+export function resolverEquipoEnPartido(nombre, partido) {
+  if (!nombre || !partido) return nombre
+  if (equiposEquivalentes(nombre, partido.equipo_local)) return partido.equipo_local
+  if (equiposEquivalentes(nombre, partido.equipo_visitante)) return partido.equipo_visitante
+  return nombre
+}
+
+/** Igual que resolverEquipoEnPartido pero contra una lista (finalistas, cuadro, etc.). */
+export function resolverEquipoEnLista(nombre, equipos) {
+  if (!nombre || !equipos?.length) return nombre
+  const hit = equipos.find((e) => equiposEquivalentes(e, nombre))
+  return hit ?? nombre
+}
+
+/** Cruce local/visitante equivalente (p. ej. API en inglés vs PRODEX en español). */
+export function partidosMismosEquipos(partido, local, visitante) {
+  if (!partido) return false
+  const directo =
+    equiposEquivalentes(partido.equipo_local, local) &&
+    equiposEquivalentes(partido.equipo_visitante, visitante)
+  const invertido =
+    equiposEquivalentes(partido.equipo_local, visitante) &&
+    equiposEquivalentes(partido.equipo_visitante, local)
+  return directo || invertido
+}
+
 export function staticCrestForTeam(displayName) {
   const key = normTeamCrestKey(displayName)
   if (TEAM_STATIC_CRESTS[key]) return TEAM_STATIC_CRESTS[key]
