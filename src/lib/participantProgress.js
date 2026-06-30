@@ -17,7 +17,7 @@ export function prediccionCompleta(pr) {
   return pr?.goles_local != null && pr?.goles_visitante != null
 }
 
-/** Eliminatorias: empate requiere ganador por penales. */
+/** Eliminatorias: empate a los 120 min requiere ganador por penales. */
 export function prediccionCompletaEliminatoria(pr) {
   if (pr?.goles_local == null || pr?.goles_visitante == null) return false
   if (pr.goles_local !== pr.goles_visitante) return true

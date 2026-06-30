@@ -153,6 +153,10 @@ onBeforeUnmount(flushSave)
 
     <p v-if="lockMessage" class="match-lock-msg">{{ lockMessage }}</p>
 
+    <p v-if="showPenales && !readonly" class="match-penales-label match-penales-label--120">
+      Marcador a los 120 min (incluye alargue).
+    </p>
+
     <div class="match-row">
       <div class="match-side match-side--local">
         <span v-if="crests.local" class="match-crest-wrap">

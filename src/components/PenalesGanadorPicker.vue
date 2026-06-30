@@ -15,7 +15,7 @@ function elegir(equipo) {
 
 <template>
   <div class="penales-picker">
-    <p class="penales-picker-title">Empate — ¿quién pasa por penales?</p>
+    <p class="penales-picker-title">Empate a los 120 min — ¿quién pasa por penales?</p>
     <div class="penales-picker-options">
       <button
         type="button"

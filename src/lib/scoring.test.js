@@ -90,7 +90,7 @@ console.assert(
     },
     partido
   ) === 3,
-  'penales correctos sin empate exacto en 90 min'
+  'penales correctos sin empate exacto a los 120 min'
 )
 
 console.assert(
@@ -109,7 +109,7 @@ console.assert(
     },
     partido
   ) === 3,
-  'penales correctos con otro empate en 90 min'
+  'penales correctos con otro empate a los 120 min'
 )
 
 console.assert(

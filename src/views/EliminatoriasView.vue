@@ -191,8 +191,9 @@ function guardarCampeon() {
     </div>
     <template v-else>
       <p class="elim-reglas">
-        Cada partido se bloquea 1 h antes de su horario. Finalistas y campeón se bloquean 1 h antes
-        del primer cruce de eliminatorias.
+        Marcador al cierre de los <strong>120 minutos</strong> (90 + alargue). Si empatan a los 120,
+        elegí quién gana por penales (P). Cada partido se bloquea 1 h antes de su horario.
+        Finalistas y campeón se bloquean 1 h antes del primer cruce de eliminatorias.
       </p>
 
       <div class="view-toggle">

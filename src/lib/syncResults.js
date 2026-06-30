@@ -371,8 +371,12 @@ export async function fetchWorldCupMatches() {
 
 export function mapApiMatchToResult(match) {
   if (match.status !== 'FINISHED') return null
-  const score = match.score?.fullTime || match.score?.regularTime
-  if (!score || score.home == null || score.away == null) return null
+
+  const score120 =
+    match.score?.extraTime?.home != null && match.score?.extraTime?.away != null
+      ? match.score.extraTime
+      : match.score?.fullTime || match.score?.regularTime
+  if (!score120 || score120.home == null || score120.away == null) return null
 
   const penales =
     match.score?.penalties &&
@@ -388,8 +392,8 @@ export function mapApiMatchToResult(match) {
 
   return {
     external_id: match.id,
-    goles_local: score.home,
-    goles_visitante: score.away,
+    goles_local: score120.home,
+    goles_visitante: score120.away,
     definido_penales: Boolean(penales),
     ganador_penales,
     equipo_local: match.homeTeam?.name,

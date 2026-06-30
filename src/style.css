@@ -2228,6 +2228,12 @@ a.home-tile:active {
   text-align: center;
 }
 
+.match-penales-label--120 {
+  display: block;
+  margin: 0 0 0.5rem;
+  text-align: center;
+}
+
 .match-penales-label {
   display: inline-flex;
   align-items: center;

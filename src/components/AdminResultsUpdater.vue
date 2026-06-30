@@ -409,6 +409,10 @@ defineExpose({ cargar, recalcular })
             <div class="match-team mb-2">{{ p.equipo_local }} vs {{ p.equipo_visitante }}</div>
             <p v-if="estadoCruce(p) === 'espera'" class="admin-res-hint">{{ hintCruce(p) }}</p>
             <template v-else>
+              <p v-if="p.fase !== 'grupos'" class="admin-res-hint admin-res-hint--120">
+                Marcador a los 120 min (incluye alargue). Si empatan a los 120, elegí ganador por
+                penales.
+              </p>
               <div class="match-score-row">
                 <input
                   type="number"

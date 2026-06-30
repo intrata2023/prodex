@@ -55,6 +55,7 @@ export function resultadoEliminatoriaDefinido(partido, real) {
   return Boolean(real.definido_penales && real.ganador_penales)
 }
 
+/** Marcador de eliminatorias = cierre de los 120 min (90 + alargue). Penales solo si empatan a los 120. */
 export function puntosEliminatoria(pred, real, partido) {
   if (
     real.goles_local == null ||
@@ -111,10 +112,10 @@ export function aciertoPrediccion(pred, real, partido) {
 
   const pts = puntosEliminatoria(pred, real, partido)
   if (pts === 5) {
-    return { tipo: 'exacto', pts, label: 'Acertaste empate exacto y ganador por penales' }
+    return { tipo: 'exacto', pts, label: 'Acertaste empate exacto a los 120 min y ganador por penales' }
   }
   if (pts === 3) return { tipo: 'ganador', pts, label: 'Acertaste ganador por penales' }
-  if (pts === 2) return { tipo: 'exacto', pts, label: 'Acertaste resultado exacto' }
+  if (pts === 2) return { tipo: 'exacto', pts, label: 'Acertaste resultado exacto a los 120 min' }
   if (pts === 1) return { tipo: 'ganador', pts, label: 'Acertaste quién pasa de ronda' }
   return { tipo: 'fallo', pts: 0, label: 'No acertaste' }
 }

@@ -13,19 +13,23 @@
 
       <section class="rules-section">
         <h3>Eliminatorias</h3>
+        <p class="rules-note">
+          Cargás el marcador al cierre de los <strong>120 minutos</strong> (90 + alargue).
+          Los goles del alargue cuentan en el resultado exacto.
+        </p>
         <p class="rules-note">Solo suma la mejor opción que cumplas en cada partido.</p>
 
-        <p class="rules-subhead">Partido definido en 90 minutos</p>
+        <p class="rules-subhead">Partido definido antes de penales</p>
         <ul>
-          <li><strong>2 pts</strong> — resultado exacto en 90 min</li>
+          <li><strong>2 pts</strong> — resultado exacto a los 120 min</li>
           <li><strong>1 pt</strong> — acertás quién pasa, sin resultado exacto</li>
         </ul>
 
-        <p class="rules-subhead">Si el partido va a penales</p>
+        <p class="rules-subhead">Si el partido va a penales (empate a los 120)</p>
         <ul>
-          <li><strong>5 pts</strong> — empate exacto en 90 min y acertás ganador por penales (P)</li>
-          <li><strong>3 pts</strong> — acertás ganador por penales, sin empate exacto en 90 min</li>
-          <li><strong>2 pts</strong> — empate exacto en 90 min, pero mal el ganador por penales</li>
+          <li><strong>5 pts</strong> — empate exacto a los 120 min y acertás ganador por penales (P)</li>
+          <li><strong>3 pts</strong> — acertás ganador por penales, sin empate exacto a los 120 min</li>
+          <li><strong>2 pts</strong> — empate exacto a los 120 min, pero mal el ganador por penales</li>
         </ul>
 
         <p class="rules-note rules-note--tight">
