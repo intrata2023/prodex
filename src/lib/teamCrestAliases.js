@@ -171,6 +171,16 @@ export function apiTeamNameForCrest(displayName) {
   return TEAM_CREST_ALIASES[key] || displayName
 }
 
+/** Clave canónica para comparar equipos (español/inglés, acentos, etc.). */
+export function canonicalTeamKey(name) {
+  return normTeamCrestKey(apiTeamNameForCrest(name))
+}
+
+export function equiposEquivalentes(a, b) {
+  if (!a || !b) return false
+  return canonicalTeamKey(a) === canonicalTeamKey(b)
+}
+
 export function staticCrestForTeam(displayName) {
   const key = normTeamCrestKey(displayName)
   if (TEAM_STATIC_CRESTS[key]) return TEAM_STATIC_CRESTS[key]

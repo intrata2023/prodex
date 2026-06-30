@@ -113,6 +113,25 @@ console.assert(
 )
 
 console.assert(
+  puntosEliminatoria(
+    {
+      goles_local: 1,
+      goles_visitante: 1,
+      penales: true,
+      ganador_penales: 'Morocco',
+    },
+    {
+      goles_local: 1,
+      goles_visitante: 1,
+      definido_penales: true,
+      ganador_penales: 'Marruecos',
+    },
+    { equipo_local: 'Portugal', equipo_visitante: 'Marruecos' }
+  ) === 5,
+  'penales Marruecos/Morocco alias'
+)
+
+console.assert(
   puntosFinalCampeon({
     finalista_1: 'Argentina',
     finalista_2: 'Francia',

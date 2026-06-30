@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted } from 'vue'
 import { useTeamCrests } from '../composables/useTeamCrests.js'
-import { sortPartidosCuadro } from '../lib/fifaBracket2026.js'
+import { equiposEquivalentes } from '../lib/teamCrestAliases.js'
 import { isPlaceholderEquipo } from '../lib/eliminatorias.js'
 
 const RONDAS = [
@@ -121,7 +121,7 @@ function realScore(resultado, side) {
 function pasaPorPenales(resultado, partido, side) {
   if (!resultado?.definido_penales || !resultado.ganador_penales) return false
   const equipo = side === 'local' ? partido.equipo_local : partido.equipo_visitante
-  return resultado.ganador_penales === equipo
+  return equiposEquivalentes(resultado.ganador_penales, equipo)
 }
 
 function isPlaceholder(name) {

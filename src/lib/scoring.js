@@ -2,6 +2,8 @@
  * Cálculo de puntos - Prode Mundial 2026
  */
 
+import { equiposEquivalentes } from './teamCrestAliases.js'
+
 export function ganador(golesLocal, golesVisitante) {
   if (golesLocal == null || golesVisitante == null) return null
   if (golesLocal > golesVisitante) return 'local'
@@ -76,7 +78,7 @@ export function puntosEliminatoria(pred, real, partido) {
     pred.penales &&
     pred.ganador_penales &&
     real.ganador_penales &&
-    pred.ganador_penales === real.ganador_penales
+    equiposEquivalentes(pred.ganador_penales, real.ganador_penales)
 
   if (penalesOk && exacto) return 5
   if (penalesOk) return 3
@@ -84,7 +86,7 @@ export function puntosEliminatoria(pred, real, partido) {
 
   const pasaPred = equipoQuePasa(pred, partido, true)
   const pasaReal = equipoQuePasa(real, partido, false)
-  if (pasaPred && pasaReal && pasaPred === pasaReal) return 1
+  if (pasaPred && pasaReal && equiposEquivalentes(pasaPred, pasaReal)) return 1
   return 0
 }
 
@@ -131,9 +133,10 @@ export function puntosFinalCampeon({
   const reales = finalistasReales.filter(Boolean)
   let aciertosFinalistas = 0
   for (const f of preds) {
-    if (reales.includes(f)) aciertosFinalistas++
+    if (reales.some((r) => equiposEquivalentes(f, r))) aciertosFinalistas++
   }
-  const acertoCampeon = campeonPred && campeonReal && campeonPred === campeonReal
+  const acertoCampeon =
+    campeonPred && campeonReal && equiposEquivalentes(campeonPred, campeonReal)
 
   if (aciertosFinalistas === 2 && acertoCampeon) return 12
   if (aciertosFinalistas === 2 && !acertoCampeon) return 5
