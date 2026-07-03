@@ -252,10 +252,11 @@ function initial(nombre) {
       </p>
 
       <div class="pc-lista">
-        <div
+        <router-link
           v-for="f in filas"
           :key="f.id"
-          class="pc-fila"
+          :to="`/rivales/detalle/${f.id}`"
+          class="pc-fila pc-fila--link"
           :class="[
             `pc-fila--${f.estado}`,
             { 'pc-fila--yo': f.esYo },
@@ -289,7 +290,8 @@ function initial(nombre) {
           </span>
           <span v-else-if="f.pred" class="mp-pts mp-pts--pendiente">—</span>
           <span v-else class="mp-pts mp-pts--sin"> </span>
-        </div>
+          <span class="pc-fila-arrow" aria-hidden="true">›</span>
+        </router-link>
       </div>
     </div>
   </AppLayout>

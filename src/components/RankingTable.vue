@@ -5,6 +5,7 @@ defineProps({
   rows: { type: Array, default: () => [] },
   showPremios: { type: Boolean, default: false },
   showDesglose: { type: Boolean, default: false },
+  linkable: { type: Boolean, default: false },
 })
 
 function initial(nombre) {
@@ -43,8 +44,19 @@ function initial(nombre) {
         >
           <td class="col-pos">{{ row.puesto ?? i + 1 }}</td>
           <td class="col-name">
-            <span class="promi-avatar">{{ initial(row.nombre) }}</span>
-            <span class="promi-name">{{ row.nombre }}</span>
+            <router-link
+              v-if="linkable"
+              :to="`/rivales/detalle/${row.id}`"
+              class="promi-name-link"
+            >
+              <span class="promi-avatar">{{ initial(row.nombre) }}</span>
+              <span class="promi-name">{{ row.nombre }}</span>
+              <span class="promi-name-arrow" aria-hidden="true">›</span>
+            </router-link>
+            <template v-else>
+              <span class="promi-avatar">{{ initial(row.nombre) }}</span>
+              <span class="promi-name">{{ row.nombre }}</span>
+            </template>
           </td>
           <td class="col-pts">{{ row.puntos_total }}</td>
           <td v-if="showDesglose" class="col-stat">{{ row.desglose?.grupos ?? 0 }}</td>
@@ -74,5 +86,30 @@ function initial(nombre) {
 .ranking-leyenda strong {
   color: var(--accent);
   font-weight: 700;
+}
+
+.promi-name-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.promi-name-link .promi-name {
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  transition: text-decoration-color 0.15s ease;
+}
+
+.promi-name-link:hover .promi-name,
+.promi-name-link:focus-visible .promi-name {
+  text-decoration-color: var(--accent);
+}
+
+.promi-name-arrow {
+  color: var(--text-muted);
+  font-size: 1rem;
+  line-height: 1;
 }
 </style>

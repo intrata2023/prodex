@@ -40,6 +40,7 @@ const resultados = ref({})
 const campeon = ref({ equipo: '', finalista_1: '', finalista_2: '' })
 const loading = ref(true)
 const vista = ref('cargar')
+const soloPendientes = ref(false)
 const ahora = ref(Date.now())
 let campeonTimer = null
 let relojTimer = null
@@ -64,6 +65,29 @@ const porRonda = computed(() =>
     ...r,
     partidos: partidos.value.filter((p) => p.fase === r.fase),
   })).filter((r) => r.partidos.length > 0)
+)
+
+function partidoJugado(partido) {
+  const r = resultados.value[partido.id]
+  return Boolean(r && r.goles_local != null && r.goles_visitante != null)
+}
+
+const porRondaVisible = computed(() =>
+  porRonda.value
+    .map((r) => ({
+      ...r,
+      partidos: soloPendientes.value
+        ? r.partidos.filter((p) => !partidoJugado(p))
+        : r.partidos,
+    }))
+    .filter((r) => r.partidos.length > 0)
+)
+
+const totalPendientes = computed(() =>
+  porRonda.value.reduce(
+    (acc, r) => acc + r.partidos.filter((p) => !partidoJugado(p)).length,
+    0
+  )
 )
 
 onMounted(async () => {
@@ -224,7 +248,20 @@ function guardarCampeon() {
       </div>
 
       <template v-if="vista === 'cargar'">
-        <div v-for="ronda in porRonda" :key="ronda.fase" class="mb-4">
+        <div v-if="porRonda.length > 0" class="elim-filtro">
+          <button
+            type="button"
+            class="elim-filtro-chip"
+            :class="{ 'elim-filtro-chip--active': soloPendientes }"
+            :aria-pressed="soloPendientes"
+            @click="soloPendientes = !soloPendientes"
+          >
+            {{ soloPendientes ? 'Mostrando pendientes' : 'Solo por jugarse' }}
+            <span class="elim-filtro-count">{{ totalPendientes }}</span>
+          </button>
+        </div>
+
+        <div v-for="ronda in porRondaVisible" :key="ronda.fase" class="mb-4">
           <h2 class="section-heading">{{ ronda.label }}</h2>
           <div v-for="p in ronda.partidos" :key="p.id" class="elim-partido-item">
             <MatchPredictionCard
@@ -238,6 +275,13 @@ function guardarCampeon() {
             <PartidoRivalesLink v-if="linkContrincantes(p)" :partido-id="p.id" />
           </div>
         </div>
+
+        <p
+          v-if="soloPendientes && porRondaVisible.length === 0 && porRonda.length > 0"
+          class="text-muted elim-filtro-vacio"
+        >
+          No quedan partidos por jugarse.
+        </p>
 
         <FinalistasCampeonPicker
           v-model="campeon"

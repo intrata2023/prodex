@@ -155,6 +155,37 @@ async function cargar() {
 </script>
 
 <template>
+  <div
+    v-if="!loading && !error && supabaseConfigured && cargaDia.pendientes > 0"
+    class="home-alarma"
+    role="alert"
+  >
+    <span class="home-alarma-icono" aria-hidden="true">⚠️</span>
+    <div class="home-alarma-texto">
+      <strong class="home-alarma-titulo">
+        {{
+          cargaDia.pendientes === 1
+            ? 'Te falta cargar un partido'
+            : `Te faltan cargar ${cargaDia.pendientes} partidos`
+        }}
+      </strong>
+      <span class="home-alarma-sub">
+        {{
+          offsetDias === 0
+            ? 'Completá tus predicciones de hoy antes de que cierren.'
+            : 'Completá tus predicciones de este día antes de que cierren.'
+        }}
+      </span>
+    </div>
+    <RouterLink
+      v-if="linkCargaPendiente"
+      :to="linkCargaPendiente.to"
+      class="home-alarma-btn"
+    >
+      {{ linkCargaPendiente.label }}
+    </RouterLink>
+  </div>
+
   <section class="home-hoy">
     <nav class="home-hoy-links-bar" aria-label="Predicciones">
       <RouterLink to="/rivales/detalle" class="home-hoy-link home-hoy-link--cta">

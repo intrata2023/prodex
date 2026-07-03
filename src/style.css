@@ -365,6 +365,75 @@ body {
   color: var(--text-muted);
 }
 
+.home-alarma {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  margin-bottom: 1.25rem;
+  padding: 1rem 1.125rem;
+  border-radius: var(--radius);
+  border: 1px solid rgba(248, 113, 113, 0.55);
+  background: linear-gradient(
+    135deg,
+    rgba(248, 113, 113, 0.22) 0%,
+    rgba(248, 113, 113, 0.08) 100%
+  );
+  box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.15), 0 8px 24px rgba(248, 113, 113, 0.12);
+  animation: home-alarma-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes home-alarma-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.15), 0 8px 24px rgba(248, 113, 113, 0.12);
+  }
+  50% {
+    box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.4), 0 8px 30px rgba(248, 113, 113, 0.3);
+  }
+}
+
+.home-alarma-icono {
+  font-size: 1.75rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.home-alarma-texto {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.home-alarma-titulo {
+  font-size: 1.0625rem;
+  font-weight: 800;
+  color: #fecaca;
+  letter-spacing: -0.01em;
+}
+
+.home-alarma-sub {
+  font-size: 0.8125rem;
+  color: rgba(254, 202, 202, 0.85);
+}
+
+.home-alarma-btn {
+  flex-shrink: 0;
+  padding: 0.5rem 0.9375rem;
+  border-radius: 999px;
+  background: #f87171;
+  color: #2a0606;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.home-alarma-btn:active {
+  transform: translateY(1px);
+}
+
 .home-hoy {
   margin-bottom: 1.25rem;
   border-radius: var(--radius);
@@ -927,12 +996,35 @@ body {
 
 .pc-fila {
   display: grid;
-  grid-template-columns: 1.75rem 2rem minmax(0, 1fr) auto 2.25rem;
+  grid-template-columns: 1.75rem 2rem minmax(0, 1fr) auto 2.25rem 1rem;
   align-items: center;
   gap: 0.5rem;
   padding: 0.625rem 0.75rem;
   border-bottom: 1px solid var(--border);
   border-left: 3px solid transparent;
+}
+
+.pc-fila--link {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.pc-fila--link:hover,
+.pc-fila--link:active {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.pc-fila--link.pc-fila--yo:hover,
+.pc-fila--link.pc-fila--yo:active {
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.pc-fila-arrow {
+  font-size: 1.125rem;
+  color: var(--text-muted);
+  text-align: right;
 }
 
 .pc-fila:last-child {
@@ -2268,6 +2360,56 @@ a.home-tile:active {
   font-size: 0.8125rem;
   color: var(--text-muted);
   line-height: 1.45;
+}
+
+.elim-filtro {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.875rem;
+}
+
+.elim-filtro-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.25rem;
+  padding: 0 0.875rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.elim-filtro-chip--active {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.elim-filtro-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.375rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.elim-filtro-chip--active .elim-filtro-count {
+  background: var(--accent);
+  color: #04120a;
+}
+
+.elim-filtro-vacio {
+  margin: 0 0 1.25rem;
+  font-size: 0.875rem;
 }
 
 .finalistas-panel {

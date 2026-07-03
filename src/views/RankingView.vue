@@ -46,7 +46,17 @@ async function cargar() {
     </div>
 
     <div v-else class="panel-card">
-      <RankingTable :rows="rows" show-desglose />
+      <p class="ranking-tip">Tocá un participante para ver su detalle completo.</p>
+      <RankingTable :rows="rows" show-desglose linkable />
     </div>
   </AppLayout>
 </template>
+
+<style scoped>
+.ranking-tip {
+  margin: 0 0 0.75rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+</style>
