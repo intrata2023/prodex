@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted } from 'vue'
 import { useTeamCrests } from '../composables/useTeamCrests.js'
+import { sortPartidosCuadro } from '../lib/fifaBracket2026.js'
 import { equiposEquivalentes } from '../lib/teamCrestAliases.js'
 import { isPlaceholderEquipo } from '../lib/eliminatorias.js'
 
