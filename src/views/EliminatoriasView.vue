@@ -28,6 +28,7 @@ const RONDAS = [
   { fase: 'r16', label: 'Octavos de final' },
   { fase: 'qf', label: 'Cuartos de final' },
   { fase: 'sf', label: 'Semifinales' },
+  { fase: '3p', label: '3er puesto' },
   { fase: 'final', label: 'Final' },
 ]
 

@@ -37,6 +37,7 @@ export const EXTERNAL_TO_FIFA_MATCH = {
   537386: 100,
   537387: 101,
   537388: 102,
+  537389: 103,
   537390: 104,
 }
 
@@ -63,6 +64,7 @@ export const BRACKET_POSITION_BY_FIFA = {
   r16: { 89: 1, 90: 2, 93: 3, 94: 4, 91: 5, 92: 6, 95: 7, 96: 8 },
   qf: { 97: 1, 98: 2, 99: 3, 100: 4 },
   sf: { 101: 1, 102: 2 },
+  '3p': { 103: 1 },
   final: { 104: 1 },
 }
 
@@ -98,6 +100,7 @@ export const FIFA_SLOT_LABELS = {
   100: { local: 'Gan. M95', visitante: 'Gan. M96' },
   101: { local: 'Gan. M97', visitante: 'Gan. M98' },
   102: { local: 'Gan. M99', visitante: 'Gan. M100' },
+  103: { local: 'Perd. M101', visitante: 'Perd. M102' },
   104: { local: 'Gan. M101', visitante: 'Gan. M102' },
 }
 
@@ -106,7 +109,8 @@ const FASE_OFFSETS = {
   r16: 16,
   qf: 24,
   sf: 28,
-  final: 30,
+  '3p': 30,
+  final: 31,
 }
 
 function normalizeExternalId(id) {
@@ -185,6 +189,7 @@ export function enrichPartidoBracketMeta(partido, baseGruposOrden = 72) {
     r16: 'Octavos',
     qf: 'Cuartos',
     sf: 'Semis',
+    '3p': '3er puesto',
     final: 'Final',
   }[partido.fase]
 

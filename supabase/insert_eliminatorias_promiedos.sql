@@ -22,7 +22,7 @@ BEGIN;
 
 DELETE FROM partidos
 
-WHERE fase IN ('r32', 'r16', 'qf', 'sf', 'final');
+WHERE fase IN ('r32', 'r16', 'qf', 'sf', '3p', 'final');
 
 
 
@@ -122,9 +122,15 @@ BEGIN
 
 
 
+    -- ═══ 3er puesto (M103) ═══
+
+    ('3p', NULL, '3er puesto · M103 · Perd. M101 vs Perd. M102', 'Perdedor del partido 101', 'Perdedor del partido 102', 537389, '2026-07-18T21:00:00Z', base + 31),
+
+
+
     -- ═══ Final (M104) ═══
 
-    ('final', NULL, 'Final · M104 · Gan. M101 vs Gan. M102', 'Ganador del partido 101', 'Ganador del partido 102', 537390, '2026-07-19T19:00:00Z', base + 31);
+    ('final', NULL, 'Final · M104 · Gan. M101 vs Gan. M102', 'Ganador del partido 101', 'Ganador del partido 102', 537390, '2026-07-19T19:00:00Z', base + 32);
 
 
 

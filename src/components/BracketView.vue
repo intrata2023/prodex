@@ -30,7 +30,12 @@ const { load, crestsForPartido, crestsLoaded } = useTeamCrests()
 onMounted(load)
 
 const tercerPuesto = computed(() =>
-  props.partidos.find((p) => p.ronda?.toLowerCase().includes('tercer'))
+  props.partidos.find(
+    (p) =>
+      p.fase === '3p' ||
+      p.ronda?.toLowerCase().includes('tercer') ||
+      p.ronda?.toLowerCase().includes('3er')
+  )
 )
 
 function placeholderPartido(fase, idx) {

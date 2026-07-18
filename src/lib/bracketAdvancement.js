@@ -3,7 +3,7 @@ import { cruceEliminatoriaCompleto } from './eliminatorias.js'
 import { resolverEquipoEnPartido, equiposEquivalentes } from './teamCrestAliases.js'
 import { ganadorRealPartido } from './scoring.js'
 
-const FASE_ORDEN = { grupos: 0, r32: 1, r16: 2, qf: 3, sf: 4, final: 5 }
+const FASE_ORDEN = { grupos: 0, r32: 1, r16: 2, qf: 3, sf: 4, '3p': 5, final: 6 }
 
 export function buildWinnerDestinations() {
   const map = new Map()
@@ -18,7 +18,20 @@ export function buildWinnerDestinations() {
   return map
 }
 
+export function buildLoserDestinations() {
+  const map = new Map()
+  for (const [destStr, slot] of Object.entries(FIFA_SLOT_LABELS)) {
+    const destNo = Number(destStr)
+    for (const [side, label] of Object.entries(slot)) {
+      const m = String(label).match(/Perd\.?\s*M(\d+)/i)
+      if (m) map.set(Number(m[1]), { destNo, side })
+    }
+  }
+  return map
+}
+
 const WINNER_DEST = buildWinnerDestinations()
+const LOSER_DEST = buildLoserDestinations()
 
 export function findPartidoByFifaNo(partidos, fifaNo) {
   for (const p of partidos || []) {
@@ -47,34 +60,58 @@ export function partidosPendientesResultado(partidos, resultadosMap) {
     })
 }
 
-export function calcularAvanceCuadro(partido, resultado, partidos) {
-  if (!partido || partido.fase === 'grupos') return null
-  if (!resultadoCompleto(partido, resultado)) return null
-
+function perdedorRealPartido(partido, resultado) {
   const winnerRaw = ganadorRealPartido(partido, resultado)
   if (!winnerRaw) return null
-  const winner = resolverEquipoEnPartido(winnerRaw, partido)
+  if (equiposEquivalentes(winnerRaw, partido.equipo_local)) return partido.equipo_visitante
+  if (equiposEquivalentes(winnerRaw, partido.equipo_visitante)) return partido.equipo_local
+  return null
+}
 
-  const sourceNo = fifaMatchNo(partido)
-  if (!sourceNo) return null
-
-  const dest = WINNER_DEST.get(sourceNo)
-  if (!dest) return null
+function buildAvance(partido, equipoRaw, dest, partidos) {
+  if (!dest || !equipoRaw) return null
+  const equipo = resolverEquipoEnPartido(equipoRaw, partido)
+  if (!equipo) return null
 
   const destPartido = findPartidoByFifaNo(partidos, dest.destNo)
   if (!destPartido) return null
 
   const field = dest.side === 'local' ? 'equipo_local' : 'equipo_visitante'
-  if (equiposEquivalentes(destPartido[field], winner)) return null
+  if (equiposEquivalentes(destPartido[field], equipo)) return null
 
   return {
     partidoId: destPartido.id,
     field,
-    equipo: resolverEquipoEnPartido(winner, destPartido) || winner,
+    equipo: resolverEquipoEnPartido(equipo, destPartido) || equipo,
     destPartido,
-    sourceFifaNo: sourceNo,
+    sourceFifaNo: fifaMatchNo(partido),
     destFifaNo: dest.destNo,
   }
+}
+
+/** Avances (ganador y, si aplica, perdedor) desde un partido con resultado. */
+export function calcularAvancesDesdePartido(partido, resultado, partidos) {
+  if (!partido || partido.fase === 'grupos') return []
+  if (!resultadoCompleto(partido, resultado)) return []
+
+  const sourceNo = fifaMatchNo(partido)
+  if (!sourceNo) return []
+
+  const updates = []
+  const winnerRaw = ganadorRealPartido(partido, resultado)
+  const winnerAvance = buildAvance(partido, winnerRaw, WINNER_DEST.get(sourceNo), partidos)
+  if (winnerAvance) updates.push(winnerAvance)
+
+  const loserRaw = perdedorRealPartido(partido, resultado)
+  const loserAvance = buildAvance(partido, loserRaw, LOSER_DEST.get(sourceNo), partidos)
+  if (loserAvance) updates.push(loserAvance)
+
+  return updates
+}
+
+/** Compat: primer avance (ganador) desde un partido. */
+export function calcularAvanceCuadro(partido, resultado, partidos) {
+  return calcularAvancesDesdePartido(partido, resultado, partidos)[0] ?? null
 }
 
 export function listarAvancesCuadro(partidos, resultadosMap) {
@@ -83,12 +120,13 @@ export function listarAvancesCuadro(partidos, resultadosMap) {
 
   for (const p of partidos || []) {
     if (p.fase === 'grupos') continue
-    const avance = calcularAvanceCuadro(p, resultadosMap?.[p.id], partidos)
-    if (!avance) continue
-    const key = `${avance.partidoId}:${avance.field}`
-    if (seen.has(key)) continue
-    seen.add(key)
-    updates.push(avance)
+    const avances = calcularAvancesDesdePartido(p, resultadosMap?.[p.id], partidos)
+    for (const avance of avances) {
+      const key = `${avance.partidoId}:${avance.field}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      updates.push(avance)
+    }
   }
 
   return updates

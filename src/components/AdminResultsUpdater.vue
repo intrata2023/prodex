@@ -12,7 +12,7 @@ import { listarCorreccionesNombresEquipos } from '../lib/normalizarEquipos.js'
 import { resolverEquipoEnPartido, resolverEquipoEnLista } from '../lib/teamCrestAliases.js'
 import {
   listarAvancesCuadro,
-  calcularAvanceCuadro,
+  calcularAvancesDesdePartido,
   resultadoCompleto,
 } from '../lib/bracketAdvancement.js'
 import { useAdminPin } from '../composables/useAdminPin.js'
@@ -36,15 +36,10 @@ const loading = ref(false)
 const cargado = ref(false)
 const faseFiltro = ref('r32')
 
-const FASE_ORDEN = { grupos: 0, r32: 1, r16: 2, qf: 3, sf: 4, final: 5 }
-
-function esTercerPuesto(partido) {
-  return partido?.ronda?.toLowerCase().includes('tercer')
-}
+const FASE_ORDEN = { grupos: 0, r32: 1, r16: 2, qf: 3, sf: 4, '3p': 5, final: 6 }
 
 function partidosEnFase(fase) {
   let lista = partidos.value.filter((p) => {
-    if (esTercerPuesto(p)) return false
     if (fase === 'todas') return true
     return p.fase === fase
   })
@@ -112,6 +107,7 @@ function etiquetaFase(fase) {
     r16: 'Octavos',
     qf: 'Cuartos',
     sf: 'Semis',
+    '3p': '3er puesto',
     final: 'Final',
   }
   return map[fase] || fase
@@ -215,8 +211,9 @@ async function persistirResultado(updated) {
   })
 
   if (partido && resultadoCompleto(partido, payload)) {
-    const avance = calcularAvanceCuadro(partido, payload, partidos.value)
-    if (avance) {
+    const avances = calcularAvancesDesdePartido(partido, payload, partidos.value)
+    const msgs = []
+    for (const avance of avances) {
       await supabase.rpc('admin_update_partido', {
         p_admin_pin: pin,
         p_partido_id: avance.partidoId,
@@ -224,8 +221,9 @@ async function persistirResultado(updated) {
       })
       const dest = partidos.value.find((p) => p.id === avance.partidoId)
       if (dest) dest[avance.field] = avance.equipo
-      mensaje.value = `${avance.equipo} avanza a ${etiquetaFase(dest?.fase || '')}`
+      msgs.push(`${avance.equipo} → ${etiquetaFase(dest?.fase || '')}`)
     }
+    if (msgs.length) mensaje.value = msgs.join(' · ')
 
     if (partido.fase === 'final') {
       const campeonRaw = ganadorRealPartido(partido, payload)
@@ -238,7 +236,7 @@ async function persistirResultado(updated) {
           p_monto_por_persona: null,
           p_campeon_real: campeon,
         })
-        if (!avance) mensaje.value = `Campeón registrado: ${campeon}`
+        if (!msgs.length) mensaje.value = `Campeón registrado: ${campeon}`
       }
     }
   }

@@ -30,7 +30,7 @@ CREATE TABLE participantes (
 -- Partidos
 CREATE TABLE partidos (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  fase TEXT NOT NULL CHECK (fase IN ('grupos', 'r32', 'r16', 'qf', 'sf', 'final')),
+  fase TEXT NOT NULL CHECK (fase IN ('grupos', 'r32', 'r16', 'qf', 'sf', '3p', 'final')),
   grupo TEXT,
   ronda TEXT NOT NULL,
   equipo_local TEXT NOT NULL,

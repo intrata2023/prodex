@@ -4,7 +4,7 @@ export const MS_UNA_HORA = 60 * 60 * 1000
 export const R32_PARTIDOS = 16
 export const R32_POR_MITAD = 8
 
-const FASES_ELIM = new Set(['r32', 'r16', 'qf', 'sf', 'final'])
+const FASES_ELIM = new Set(['r32', 'r16', 'qf', 'sf', '3p', 'final'])
 
 export function isPlaceholderEquipo(name) {
   if (!name || !String(name).trim()) return true
@@ -12,7 +12,9 @@ export function isPlaceholderEquipo(name) {
   const n = raw.toLowerCase()
   if (n === 'tbd' || n === 'por definir') return true
   if (/^ganador del partido \d+$/i.test(raw)) return true
+  if (/^perdedor del partido \d+$/i.test(raw)) return true
   if (/^gan\.?\s*m\d+/i.test(raw)) return true
+  if (/^perd\.?\s*m\d+/i.test(raw)) return true
   if (/^ganador\s+m\d+/i.test(raw)) return true
   if (/^3°/i.test(raw)) return true
   if (/^[12][a-l]$/i.test(raw)) return true
@@ -215,5 +217,6 @@ export const FASES_ELIM_ADMIN = [
   { value: 'r16', label: 'Octavos de final' },
   { value: 'qf', label: 'Cuartos de final' },
   { value: 'sf', label: 'Semifinales' },
+  { value: '3p', label: '3er puesto' },
   { value: 'final', label: 'Final' },
 ]

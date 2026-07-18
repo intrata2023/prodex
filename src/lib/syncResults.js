@@ -8,8 +8,8 @@ const FASE_BY_STAGE = {
   LAST_16: 'r16',
   QUARTER_FINALS: 'qf',
   SEMI_FINALS: 'sf',
+  THIRD_PLACE: '3p',
   FINAL: 'final',
-  THIRD_PLACE: 'sf',
 }
 
 export const KNOCKOUT_API_STAGES = new Set([
@@ -17,6 +17,7 @@ export const KNOCKOUT_API_STAGES = new Set([
   'LAST_16',
   'QUARTER_FINALS',
   'SEMI_FINALS',
+  'THIRD_PLACE',
   'FINAL',
 ])
 
@@ -26,8 +27,8 @@ const RONDA_BY_STAGE = {
   LAST_16: 'Octavos de final',
   QUARTER_FINALS: 'Cuartos de final',
   SEMI_FINALS: 'Semifinales',
-  FINAL: 'Final',
   THIRD_PLACE: 'Tercer puesto',
+  FINAL: 'Final',
 }
 
 export function parseGrupo(group) {
@@ -85,7 +86,7 @@ export function mapApiMatchesToPartidos(matches) {
   return rows
 }
 
-/** Solo eliminatorias (16avos → final), sin fase de grupos ni tercer puesto. */
+/** Solo eliminatorias (16avos → final + 3er puesto), sin fase de grupos. */
 export function mapApiMatchesToEliminatorias(matches, baseGruposOrden = 72) {
   const knockout = (matches || []).filter((m) => KNOCKOUT_API_STAGES.has(m.stage))
   return mapApiMatchesToPartidos(knockout).map((p) =>

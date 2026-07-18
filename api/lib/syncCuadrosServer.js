@@ -11,6 +11,7 @@ const KNOCKOUT_STAGES = new Set([
   'LAST_16',
   'QUARTER_FINALS',
   'SEMI_FINALS',
+  'THIRD_PLACE',
   'FINAL',
 ])
 
@@ -19,6 +20,7 @@ const FASE_BY_STAGE = {
   LAST_16: 'r16',
   QUARTER_FINALS: 'qf',
   SEMI_FINALS: 'sf',
+  THIRD_PLACE: '3p',
   FINAL: 'final',
 }
 
@@ -27,6 +29,7 @@ const RONDA_BY_STAGE = {
   LAST_16: 'Octavos de final',
   QUARTER_FINALS: 'Cuartos de final',
   SEMI_FINALS: 'Semifinales',
+  THIRD_PLACE: 'Tercer puesto',
   FINAL: 'Final',
 }
 

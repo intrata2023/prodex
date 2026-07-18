@@ -32,6 +32,7 @@ const fases = [
   { value: 'r16', label: 'Octavos' },
   { value: 'qf', label: 'Cuartos' },
   { value: 'sf', label: 'Semifinal' },
+  { value: '3p', label: '3er puesto' },
   { value: 'final', label: 'Final' },
 ]
 

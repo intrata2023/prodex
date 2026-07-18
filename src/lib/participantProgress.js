@@ -329,6 +329,7 @@ export const FASES_ELIM_PROGRESO = [
   { fase: 'r16', label: 'Octavos', short: 'Oct' },
   { fase: 'qf', label: 'Cuartos', short: '4tos' },
   { fase: 'sf', label: 'Semis', short: 'Semi' },
+  { fase: '3p', label: '3er puesto', short: '3er' },
   { fase: 'final', label: 'Final', short: 'Fin' },
 ]
 

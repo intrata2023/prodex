@@ -7,7 +7,9 @@ import {
   fifaMatchNo,
 } from './fifaBracket2026.js'
 
-console.assert(Object.keys(EXTERNAL_TO_FIFA_MATCH).length === 31, '31 external ids mapeados')
+console.assert(Object.keys(EXTERNAL_TO_FIFA_MATCH).length === 32, '32 external ids mapeados')
+console.assert(EXTERNAL_TO_FIFA_MATCH[537389] === 103, '3er puesto = M103')
+console.assert(BRACKET_POSITION_BY_FIFA['3p'][103] === 1, 'M103 en fase 3p')
 console.assert(EXTERNAL_TO_FIFA_MATCH[537417] === 73, 'SA-Canadá = M73')
 console.assert(EXTERNAL_TO_FIFA_MATCH[537416] === 77, 'Francia-Suecia = M77')
 console.assert(BRACKET_POSITION_BY_FIFA.r32[74] === 1, 'M74 primero en cuadro Promiedos')

@@ -97,18 +97,18 @@ export function mapPromiedosBracket(brackets, baseGruposOrden = 72) {
 
     const groups = stage.groups || []
     groups.forEach((group, index) => {
-      // Final incluye 3er puesto como 2º cruce; PRODEX solo guarda la final (M104).
-      if (fase === 'final' && index > 0) return
+      // Promiedos mete el 3er puesto como 2º cruce dentro de "Final".
+      const faseRow = fase === 'final' && index > 0 ? '3p' : fase
+      const bracketPos = faseRow === '3p' ? 1 : index + 1
 
       const participants = group.participants || []
       const localRaw = participants[0]?.name || participants[0]?.short_name || ''
       const visitanteRaw = participants[1]?.name || participants[1]?.short_name || ''
-      const bracketPos = index + 1
-      const external_id = externalIdForBracketSlot(fase, bracketPos)
+      const external_id = externalIdForBracketSlot(faseRow, bracketPos)
       if (external_id == null) return
 
       const row = {
-        fase,
+        fase: faseRow,
         external_id,
         equipo_local: normalizePromiedosTeam(localRaw),
         equipo_visitante: normalizePromiedosTeam(visitanteRaw),

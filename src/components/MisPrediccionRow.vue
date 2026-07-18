@@ -35,6 +35,7 @@ const meta = computed(() => {
   if (r.includes('Octavos')) return '8vos'
   if (r.includes('Cuartos')) return '4tos'
   if (r.includes('Semi')) return 'Semi'
+  if (r.includes('3er') || r.toLowerCase().includes('tercer')) return '3er'
   if (r.includes('Final')) return 'Final'
   if (r.includes('16avos')) return '16av'
   return r.slice(0, 5)

@@ -66,6 +66,42 @@ console.assert(
 const avances = listarAvancesCuadro(partidos, { m73: resPenales })
 console.assert(avances.length === 1 && avances[0].equipo === 'Argentina', 'lista avances')
 
+const m101 = {
+  id: 'm101',
+  fase: 'sf',
+  external_id: 537387,
+  ronda: 'Semis · M101',
+  equipo_local: 'Francia',
+  equipo_visitante: 'España',
+}
+const m103 = {
+  id: 'm103',
+  fase: '3p',
+  external_id: 537389,
+  ronda: '3er puesto · M103 · Perd. M101 vs Perd. M102',
+  equipo_local: 'Perdedor del partido 101',
+  equipo_visitante: 'Perdedor del partido 102',
+}
+const m104 = {
+  id: 'm104',
+  fase: 'final',
+  external_id: 537390,
+  ronda: 'Final · M104',
+  equipo_local: 'Ganador del partido 101',
+  equipo_visitante: 'Ganador del partido 102',
+}
+const semis = [m101, m103, m104]
+const resSemi = { goles_local: 1, goles_visitante: 2 }
+const avancesSemi = listarAvancesCuadro(semis, { m101: resSemi })
+console.assert(
+  avancesSemi.some((a) => a.partidoId === 'm104' && a.equipo === 'España'),
+  'ganador semi va a la final'
+)
+console.assert(
+  avancesSemi.some((a) => a.partidoId === 'm103' && a.equipo === 'Francia'),
+  'perdedor semi va al 3er puesto'
+)
+
 const mMorocco = {
   id: 'mMor',
   fase: 'r16',
